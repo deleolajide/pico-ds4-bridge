@@ -60,7 +60,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     pico_btstack_classic
     pico_btstack_ble
     pico_btstack_cyw43
-    # bluepad32
+    bluepad32
 )
 
 add_subdirectory(${BLUEPAD32_ROOT}/src/components/bluepad32 libbluepad32)
