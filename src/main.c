@@ -1,7 +1,6 @@
 #include <pico/cyw43_arch.h>
 #include <pico/stdlib.h>
 
-
 // #include <btstack_run_loop.h>
 // #include <hardware/flash.h>
 // #include <hardware/sync.h>
@@ -28,25 +27,16 @@ int main() {
     return -1;
   }
 
-  init_bluetooth();
+  // Turn-on LED. Turn it off once init is done.
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+  sleep_ms(1000);
 
-  while (true) {
-    // Turn-on LED. Turn it off once init is done.
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    sleep_ms(1000);
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+  sleep_ms(1000);
 
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-    sleep_ms(1000);
-  }
+  bluetooth_init();
 
-  //     // Must be called before uni_init()
-  // uni_platform_set_custom(get_my_platform());
-
-  // // Initialize BP32
-  // uni_init(0, NULL);
-
-  // Does not return.
-  // btstack_run_loop_execute();
+  bluetooth_run();
 
   return 0;
 }

@@ -236,19 +236,14 @@ struct uni_platform* get_my_platform(void) {
   return &plat;
 }
 
-void init_bluetooth(void) {
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-  sleep_ms(500);
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-  sleep_ms(500);
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-  sleep_ms(500);
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-  sleep_ms(500);
-
+void bluetooth_init(void) {
   // Must be called before uni_init()
   uni_platform_set_custom(get_my_platform());
 
   // Initialize BP32
   uni_init(0, NULL);
+}
+
+void bluetooth_run(void) {
+  btstack_run_loop_execute();
 }
