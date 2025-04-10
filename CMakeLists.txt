@@ -32,6 +32,7 @@ pico_sdk_init()
 add_executable(${PROJECT_NAME}
     src/main.c
     src/pico_bluetooth.c
+    src/dualshock4_shared_data.c
 )
 
 include_directories(${PROJECT_NAME} src)

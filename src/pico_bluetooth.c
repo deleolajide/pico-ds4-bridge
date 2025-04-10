@@ -7,6 +7,7 @@
 #include <pico/time.h>
 #include <uni.h>
 
+#include "dualshock4_shared_data.h"
 #include "sdkconfig.h"
 
 #ifndef CONFIG_BLUEPAD32_PLATFORM_CUSTOM
@@ -96,7 +97,56 @@ static uni_error_t my_platform_on_device_ready(uni_hid_device_t* d) {
   return UNI_ERROR_SUCCESS;
 }
 
+static void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4) {
+  uni_gamepad_t* uni_ctl = &uni->gamepad;
+
+  ds4->report_id = 0x01;
+  ds4->left_stick_x = (uint8_t)(uni_ctl->axis_x / 4 + 0x80 - 1);
+  ds4->left_stick_y = (uint8_t)(uni_ctl->axis_y / 4 + 0x80 - 1);
+  ds4->right_stick_x = (uint8_t)(uni_ctl->axis_rx / 4 + 0x80 - 1);
+  ds4->right_stick_y = (uint8_t)(uni_ctl->axis_ry / 4 + 0x80 - 1);
+  ds4->dpad = uni_ctl->dpad & 0x0F;
+
+  uint16_t buttons = uni_ctl->buttons;
+  ds4->button_west = (buttons >> 0) & 0x01;
+  ds4->button_south = (buttons >> 1) & 0x01;
+  ds4->button_east = (buttons >> 2) & 0x01;
+  ds4->button_north = (buttons >> 3) & 0x01;
+  ds4->button_l1 = (buttons >> 4) & 0x01;
+  ds4->button_r1 = (buttons >> 5) & 0x01;
+  ds4->button_l2 = (buttons >> 6) & 0x01;
+  ds4->button_r2 = (buttons >> 7) & 0x01;
+  ds4->button_select = (buttons >> 8) & 0x01;
+  ds4->button_start = (buttons >> 9) & 0x01;
+  ds4->button_l3 = (buttons >> 10) & 0x01;
+  ds4->button_r3 = (buttons >> 11) & 0x01;
+  ds4->button_home = (buttons >> 12) & 0x01;
+  ds4->button_touchpad = (buttons >> 13) & 0x01;
+
+  static uint8_t report_counter = 0;
+  ds4->report_counter = report_counter & 0x3F;
+  report_counter++;
+
+  ds4->left_trigger = (uint8_t)(uni_ctl->brake / 4);
+  ds4->right_trigger = (uint8_t)(uni_ctl->throttle / 4);
+  ds4->axis_timing = 0;
+
+  ds4->sensor_data.gyroscope.x = uni_ctl->gyro[0];
+  ds4->sensor_data.gyroscope.y = uni_ctl->gyro[1];
+  ds4->sensor_data.gyroscope.z = uni_ctl->gyro[2];
+  ds4->sensor_data.accelerometer.x = uni_ctl->accel[0];
+  ds4->sensor_data.accelerometer.y = uni_ctl->accel[1];
+  ds4->sensor_data.accelerometer.z = uni_ctl->accel[2];
+  ds4->sensor_data.battery = uni->battery;
+  ds4->touchpad_active = 0;
+  ds4->tpad_increment = 0;
+  memset(&ds4->touchpad_data, 0, sizeof(ds4->touchpad_data));
+  memset(ds4->mystery_2, 0, sizeof(ds4->mystery_2));
+}
+
 static void my_platform_on_controller_data(uni_hid_device_t* d, uni_controller_t* ctl) {
+  assert(g_ds4_shared_data.timestamp != 0);
+
   static uint8_t leds = 0;
   static uint8_t enabled = true;
   static uni_controller_t prev = {0};
@@ -108,24 +158,33 @@ static void my_platform_on_controller_data(uni_hid_device_t* d, uni_controller_t
   //    }
   prev = *ctl;
   // Print device Id before dumping gamepad.
-  logi("(%p) id=%d ", d, uni_hid_device_get_idx_for_instance(d));
-  uni_controller_dump(ctl);
+  // logi("(%p) id=%d ", d, uni_hid_device_get_idx_for_instance(d));
+  // uni_controller_dump(ctl);
+
+  ds4_report_t control;
+  convert_uni_to_ds4(ctl, &control);
+
+  uint32_t save = spin_lock_blocking(&g_ds4_shared_data.lock);
+  g_ds4_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
+  memcpy(&g_ds4_shared_data.controller, &control, sizeof(control));
+  spin_unlock(&g_ds4_shared_data.lock, save);
 
   switch (ctl->klass) {
     case UNI_CONTROLLER_CLASS_GAMEPAD:
       gp = &ctl->gamepad;
 
-      // Debugging
-      // Axis ry: control rumble
-      if ((gp->buttons & BUTTON_A) && d->report_parser.play_dual_rumble != NULL) {
-        d->report_parser.play_dual_rumble(d, 0 /* delayed start ms */, 250 /* duration ms */, 128 /* weak magnitude */,
-                                          0 /* strong magnitude */);
-      }
+      // // Debugging
+      // // Axis ry: control rumble
+      // if ((gp->buttons & BUTTON_A) && d->report_parser.play_dual_rumble != NULL) {
+      //   d->report_parser.play_dual_rumble(d, 0 /* delayed start ms */, 250 /* duration ms */, 128 /* weak magnitude
+      //   */,
+      //                                     0 /* strong magnitude */);
+      // }
 
-      if ((gp->buttons & BUTTON_B) && d->report_parser.play_dual_rumble != NULL) {
-        d->report_parser.play_dual_rumble(d, 0 /* delayed start ms */, 250 /* duration ms */, 0 /* weak magnitude */,
-                                          128 /* strong magnitude */);
-      }
+      // if ((gp->buttons & BUTTON_B) && d->report_parser.play_dual_rumble != NULL) {
+      //   d->report_parser.play_dual_rumble(d, 0 /* delayed start ms */, 250 /* duration ms */, 0 /* weak magnitude */,
+      //                                     128 /* strong magnitude */);
+      // }
       // Buttons: Control LEDs On/Off
       if ((gp->buttons & BUTTON_X) && d->report_parser.set_player_leds != NULL) {
         d->report_parser.set_player_leds(d, leds++ & 0x0f);
@@ -138,17 +197,17 @@ static void my_platform_on_controller_data(uni_hid_device_t* d, uni_controller_t
         d->report_parser.set_lightbar_color(d, r, g, b);
       }
 
-      // Toggle Bluetooth connections
-      if ((gp->buttons & BUTTON_SHOULDER_L) && enabled) {
-        logi("*** Disabling Bluetooth connections\n");
-        uni_bt_stop_scanning_safe();
-        enabled = false;
-      }
-      if ((gp->buttons & BUTTON_SHOULDER_R) && !enabled) {
-        logi("*** Enabling Bluetooth connections\n");
-        uni_bt_start_scanning_and_autoconnect_safe();
-        enabled = true;
-      }
+      // // Toggle Bluetooth connections
+      // if ((gp->buttons & BUTTON_SHOULDER_L) && enabled) {
+      //   logi("*** Disabling Bluetooth connections\n");
+      //   uni_bt_stop_scanning_safe();
+      //   enabled = false;
+      // }
+      // if ((gp->buttons & BUTTON_SHOULDER_R) && !enabled) {
+      //   logi("*** Enabling Bluetooth connections\n");
+      //   uni_bt_start_scanning_and_autoconnect_safe();
+      //   enabled = true;
+      // }
       break;
     case UNI_CONTROLLER_CLASS_BALANCE_BOARD:
       // Do something

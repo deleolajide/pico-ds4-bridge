@@ -6,6 +6,7 @@
 // #include <hardware/sync.h>
 // #include <pico/bootrom.h>
 
+#include "dualshock4_shared_data.h"
 #include "pico_bluetooth.h"
 #include "sdkconfig.h"
 
@@ -33,17 +34,43 @@ int main() {
   gpio_set_function(0, GPIO_FUNC_UART);  // GP0: TX
   gpio_set_function(1, GPIO_FUNC_UART);  // GP1: RX
 
+  // initialize dualshock4 shared data
+  spin_lock_init(&g_ds4_shared_data.lock);
+  g_ds4_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
+
   multicore_launch_core1(bluetooth_tasks);
 
-  while (true)
-  {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    sleep_ms(500);
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-    sleep_ms(500);
-    printf("Hello, world!\n");
-  }
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+  sleep_ms(500);
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+  sleep_ms(500);
+  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+  sleep_ms(500);
 
+  while (true) {
+    bool is_fresh = false;
+    ds4_report_t report;
+    static uint32_t last_timestamp = 0;
+    {
+      uint32_t save = spin_lock_blocking(&g_ds4_shared_data.lock);
+      if (g_ds4_shared_data.timestamp > last_timestamp) {
+        last_timestamp = g_ds4_shared_data.timestamp;
+        report = g_ds4_shared_data.controller;
+        is_fresh = true;
+      }
+      spin_unlock(&g_ds4_shared_data.lock, save);
+    }
+    if (is_fresh) {
+      printf("##########################################################\n");
+      printf("L stick: %d %d\n", report.left_stick_x, report.left_stick_y);
+      printf("R stick: %d %d\n", report.right_stick_x, report.right_stick_y);
+      printf("L trigger: %d\n", report.left_trigger);
+      printf("R trigger: %d\n", report.right_trigger);
+      printf("Dpad: 0x%x%x%x%X\n", report.dpad);
+      printf("Buttons: 0b%x%x%x%x\n", report.button_south, report.button_west, report.button_north, report.button_east);
+    }
+    sleep_ms(5);
+  }
 
   return 0;
 }
