@@ -14,8 +14,10 @@
 #error "Pico W must use BLUEPAD32_PLATFORM_CUSTOM"
 #endif
 
-// // Defined in my_platform.c
-// struct uni_platform* get_my_platform(void);
+void bluetooth_tasks() {
+  bluetooth_init();
+  bluetooth_run();
+}
 
 int main() {
   stdio_init_all();
@@ -27,16 +29,21 @@ int main() {
     return -1;
   }
 
-  // Turn-on LED. Turn it off once init is done.
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-  sleep_ms(1000);
+  uart_init(uart0, 115200);
+  gpio_set_function(0, GPIO_FUNC_UART);  // GP0: TX
+  gpio_set_function(1, GPIO_FUNC_UART);  // GP1: RX
 
-  cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-  sleep_ms(1000);
+  multicore_launch_core1(bluetooth_tasks);
 
-  bluetooth_init();
+  while (true)
+  {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    sleep_ms(500);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    sleep_ms(500);
+    printf("Hello, world!\n");
+  }
 
-  bluetooth_run();
 
   return 0;
 }

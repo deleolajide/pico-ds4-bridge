@@ -4,14 +4,14 @@ if(DEFINED PICO_BOARD)
     message(DEBUG, "Using PICO_BOARD ${PICO_BOARD}")
 else()
     message(VERBOSE, "PICO_BOARD not defined. Using 'pico2_w'")
-    set(PICO_BOARD "pico2_w" CACHE STRING)
+    set(PICO_BOARD "pico2_w")
 endif()
 
 if(DEFINED PICO_PLATFORM)
     message(DEBUG, "Using PICO_PLATFORM ${PICO_PLATFORM}")
 else()
     message(VERBOSE, "PICO_PLATFORM not defined. Using 'rp2350'")
-    set(PICO_PLATFORM "rp2350" CACHE STRING)
+    set(PICO_PLATFORM "rp2350")
 endif()
 
 # Initialize the SDK based on PICO_SDK_PATH
@@ -51,6 +51,7 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
     pico_btstack_classic
     pico_btstack_ble
     pico_btstack_cyw43
+    pico_multicore
     bluepad32
     tinyusb_device
 )
@@ -62,8 +63,8 @@ target_link_libraries(${PROJECT_NAME} PUBLIC
 #        ENABLE_SEGGER_RTT=1
 # )
 
-pico_enable_stdio_usb(${PROJECT_NAME} 1)
-pico_enable_stdio_uart(${PROJECT_NAME} 0)
+pico_enable_stdio_usb(${PROJECT_NAME} 0)
+pico_enable_stdio_uart(${PROJECT_NAME} 1)
 
 # create map/bin/hex/uf2 file in addition to ELF.
 pico_add_extra_outputs(${PROJECT_NAME})
