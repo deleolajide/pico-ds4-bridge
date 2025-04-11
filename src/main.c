@@ -1,5 +1,6 @@
 #include <pico/cyw43_arch.h>
 #include <pico/stdlib.h>
+#include <tusb.h>
 
 // #include <btstack_run_loop.h>
 // #include <hardware/flash.h>
@@ -9,6 +10,8 @@
 #include "dualshock4_shared_data.h"
 #include "pico_bluetooth.h"
 #include "sdkconfig.h"
+#include "tusb_config.h"
+#include "usb_descriptors.h"
 
 // Sanity check
 #ifndef CONFIG_BLUEPAD32_PLATFORM_CUSTOM
@@ -47,7 +50,12 @@ int main() {
   cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
   sleep_ms(500);
 
+  tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO};
+  tusb_init(BOARD_TUD_RHPORT, &dev_init);
+
   while (true) {
+    tud_task();
+
     bool is_fresh = false;
     ds4_report_t report;
     static uint32_t last_timestamp = 0;
