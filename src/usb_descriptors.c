@@ -525,3 +525,7 @@ void tud_hid_set_report_cb(uint8_t instance,
     printf("\n");
   }
 }
+
+void tud_umount_cb(void) {
+  printf("USB unmounted\n");
+}

@@ -1,5 +1,5 @@
-#ifndef DATATYPE_H
-#define DATATYPE_H
+#ifndef DUALSHOCK4_COMM_H_
+#define DUALSHOCK4_COMM_H_
 
 #include <stdint.h>
 
@@ -15,4 +15,4 @@ typedef struct {
 
 extern dualshock4_shared_data_t g_ds4_shared_data;
 
-#endif  // DATATYPE_H
+#endif  // DUALSHOCK4_COMM_H_

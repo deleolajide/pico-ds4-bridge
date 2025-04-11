@@ -7,7 +7,7 @@
 #include <pico/time.h>
 #include <uni.h>
 
-#include "dualshock4_shared_data.h"
+#include "dualshock4_comm.h"
 #include "sdkconfig.h"
 
 #ifndef CONFIG_BLUEPAD32_PLATFORM_CUSTOM
