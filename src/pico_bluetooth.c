@@ -164,10 +164,10 @@ static void my_platform_on_controller_data(uni_hid_device_t* d, uni_controller_t
   ds4_report_t control;
   convert_uni_to_ds4(ctl, &control);
 
-  uint32_t save = spin_lock_blocking(&g_ds4_shared_data.lock);
+  uint32_t save = spin_lock_blocking(g_ds4_shared_data.lock);
   g_ds4_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
   memcpy(&g_ds4_shared_data.controller, &control, sizeof(control));
-  spin_unlock(&g_ds4_shared_data.lock, save);
+  spin_unlock(g_ds4_shared_data.lock, save);
 
   switch (ctl->klass) {
     case UNI_CONTROLLER_CLASS_GAMEPAD:

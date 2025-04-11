@@ -1,11 +1,7 @@
 #include <pico/cyw43_arch.h>
+#include <pico/multicore.h>
 #include <pico/stdlib.h>
 #include <tusb.h>
-
-// #include <btstack_run_loop.h>
-// #include <hardware/flash.h>
-// #include <hardware/sync.h>
-// #include <pico/bootrom.h>
 
 #include "dualshock4_shared_data.h"
 #include "pico_bluetooth.h"
@@ -38,7 +34,7 @@ int main() {
   gpio_set_function(1, GPIO_FUNC_UART);  // GP1: RX
 
   // initialize dualshock4 shared data
-  spin_lock_init(&g_ds4_shared_data.lock);
+  g_ds4_shared_data.lock = spin_lock_init(0);
   g_ds4_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
 
   multicore_launch_core1(bluetooth_tasks);
@@ -60,13 +56,13 @@ int main() {
     ds4_report_t report;
     static uint32_t last_timestamp = 0;
     {
-      uint32_t save = spin_lock_blocking(&g_ds4_shared_data.lock);
+      uint32_t save = spin_lock_blocking(g_ds4_shared_data.lock);
       if (g_ds4_shared_data.timestamp > last_timestamp) {
         last_timestamp = g_ds4_shared_data.timestamp;
         report = g_ds4_shared_data.controller;
         is_fresh = true;
       }
-      spin_unlock(&g_ds4_shared_data.lock, save);
+      spin_unlock(g_ds4_shared_data.lock, save);
     }
     if (is_fresh) {
       printf("##########################################################\n");
