@@ -147,4 +147,6 @@ typedef struct __attribute__((packed)) {
   uint8_t mystery_2[21];
 } ds4_report_t;
 
+ds4_report_t default_ds4_report();
+
 #endif  // DUALSHOCK4_H_

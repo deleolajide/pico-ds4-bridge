@@ -1,6 +1,9 @@
 #include <pico/cyw43_arch.h>
 #include <pico/stdlib.h>
 
+#include "pico_bluetooth.h"
+#include "comm.h"
+
 int main(void) {
   stdio_init_all();
 
@@ -9,12 +12,15 @@ int main(void) {
     return -1;
   }
 
-  while (true) {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    sleep_ms(250);
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-    sleep_ms(250);
-    printf("Hello, World!\n");
-  }
+  g_shared_data.lock = spin_lock_init(0);
+  g_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
+
+  printf("#################################################################\n");
+  printf("##  Bluetooth Monitor Example                                  ##\n");
+  printf("#################################################################\n");
+
+  bluetooth_init();
+  bluetooth_run();
+
   return 0;
 }

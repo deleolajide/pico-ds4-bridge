@@ -1,5 +1,6 @@
 {
   "files.associations": {
-    "pico_bluetooth.h": "c"
+    "pico_bluetooth.h": "c",
+    "dualshock4_comm.h": "c"
   }
 }

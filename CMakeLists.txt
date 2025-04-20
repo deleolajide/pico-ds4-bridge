@@ -31,6 +31,7 @@ pico_sdk_init()
 add_subdirectory(src)
 add_subdirectory(examples/monitor)
 
-include_directories(src/config)
+include_directories(config src)
+
 set(BLUEPAD32_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../bluepad32)
 add_subdirectory(${BLUEPAD32_ROOT}/src/components/bluepad32 libbluepad32)
