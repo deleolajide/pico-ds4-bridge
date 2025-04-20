@@ -87,7 +87,7 @@ extern "C" {
 
 //------------- CLASS -------------//
 #define CFG_TUD_HID 2
-#define CFG_TUD_CDC 0
+#define CFG_TUD_CDC 1
 #define CFG_TUD_MSC 0
 #define CFG_TUD_MIDI 0
 #define CFG_TUD_VENDOR 0
@@ -105,6 +105,15 @@ extern "C" {
 
 #ifndef CFG_TUSB_RHPORT1_MODE
 #define CFG_TUSB_RHPORT1_MODE OPT_MODE_NONE
+#endif
+
+#if CFG_TUD_CDC
+  #ifndef CFG_TUD_CDC_RX_BUFSIZE
+    #define CFG_TUD_CDC_RX_BUFSIZE  (TUD_OPT_HIGH_SPEED ? 512 : 64)
+  #endif
+  #ifndef CFG_TUD_CDC_TX_BUFSIZE
+    #define CFG_TUD_CDC_TX_BUFSIZE  (TUD_OPT_HIGH_SPEED ? 512 : 64)
+  #endif
 #endif
 
 #ifdef __cplusplus
