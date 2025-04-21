@@ -4,8 +4,13 @@
 #include <stdint.h>
 
 #define DS4_JOYSTICK_MIN 0x00
-#define DS4_JOYSTICK_MID 0x80
+#define DS4_JOYSTICK_MID 0x7F
 #define DS4_JOYSTICK_MAX 0xFF
+
+#define DS4_BP_UP (1 << 0)
+#define DS4_BP_DOWN (1 << 1)
+#define DS4_BP_RIGHT (1 << 2)
+#define DS4_BP_LEFT (1 << 3)
 
 typedef struct __attribute__((packed)) {
   uint8_t reportID;  // 0
@@ -148,5 +153,7 @@ typedef struct __attribute__((packed)) {
 } ds4_report_t;
 
 ds4_report_t default_ds4_report();
+
+uint8_t dpad_mask_to_hat(uint8_t mask);
 
 #endif  // DUALSHOCK4_H_

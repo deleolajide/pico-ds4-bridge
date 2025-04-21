@@ -3,11 +3,13 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <controller/uni_gamepad.h>
 #include <pico/cyw43_arch.h>
 #include <pico/time.h>
 #include <uni.h>
 
 #include "comm.h"
+#include "dualshock4.h"
 #include "sdkconfig.h"
 
 #ifndef CONFIG_BLUEPAD32_PLATFORM_CUSTOM
@@ -85,11 +87,11 @@ static void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4) {
   const uni_gamepad_t* uni_ctl = &uni->gamepad;
 
   ds4->report_id = 0x01;
-  ds4->left_stick_x = (uint8_t)(uni_ctl->axis_x / 4 + 0x80 - 1);
-  ds4->left_stick_y = (uint8_t)(uni_ctl->axis_y / 4 + 0x80 - 1);
-  ds4->right_stick_x = (uint8_t)(uni_ctl->axis_rx / 4 + 0x80 - 1);
-  ds4->right_stick_y = (uint8_t)(uni_ctl->axis_ry / 4 + 0x80 - 1);
-  ds4->dpad = uni_ctl->dpad & 0x0F;
+  ds4->left_stick_x = (uint8_t)((uni_ctl->axis_x - 1) / 4 + 0x7F);
+  ds4->left_stick_y = (uint8_t)((uni_ctl->axis_y - 1) / 4 + 0x7F);
+  ds4->right_stick_x = (uint8_t)((uni_ctl->axis_rx - 1) / 4 + 0x7F);
+  ds4->right_stick_y = (uint8_t)((uni_ctl->axis_ry - 1) / 4 + 0x7F);
+  ds4->dpad = (uint32_t)(dpad_mask_to_hat(uni_ctl->dpad & 0x0F));
 
   uint16_t buttons = uni_ctl->buttons;
   ds4->button_west = (buttons >> 0) & 0x01;
@@ -139,15 +141,11 @@ static void pico_bluetooth_on_controller_data(uni_hid_device_t* d, uni_controlle
       // logi("(%p) id=%d ", d, uni_hid_device_get_idx_for_instance(d));
       // uni_controller_dump(ctl);
 
-      now = to_ms_since_boot(get_absolute_time());
-      convert_uni_to_ds4(ctl, ds4_report_ptr);
+      now = to_us_since_boot(get_absolute_time());
       {
         save = spin_lock_blocking(g_shared_data.lock);
-
+        convert_uni_to_ds4(ctl, g_shared_data.ctrl);
         g_shared_data.timestamp = now;
-        tmp = ds4_report_ptr;
-        ds4_report_ptr = g_shared_data.ctrl;
-        g_shared_data.ctrl = tmp;
 
         spin_unlock(g_shared_data.lock, save);
       }

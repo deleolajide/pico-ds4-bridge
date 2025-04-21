@@ -22,7 +22,7 @@ void bluetooth_tasks() {
   bluetooth_run();
 }
 
-void blink_noti(uint32_t count) {
+void blink(uint32_t count) {
   while (count-- > 0) {
     cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
     sleep_ms(200);
@@ -41,7 +41,7 @@ int main() {
   }
 
   // notify the user that the device started
-  blink_noti(2);
+  blink(2);
 
   // initialize GPIO for UART
   uart_init(uart0, 115200);
@@ -51,46 +51,88 @@ int main() {
   // initialize dualshock4 shared data
   g_shared_data.lock = spin_lock_init(0);
   g_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
+  g_shared_data.ctrl = (ds4_report_t*)malloc(sizeof(ds4_report_t));
 
   multicore_launch_core1(bluetooth_tasks);
 
   tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO};
   tusb_init(BOARD_TUD_RHPORT, &dev_init);
 
-  blink_noti(2);
+  // Initialize USB HID Device stack
+  while (!is_ds4_initialized) {
+    tud_task();
+    sleep_ms(2);
+  }
+  const ds4_report_t default_report = default_ds4_report();
+  do {
+    tud_task();
+    sleep_ms(2);
+  } while (!tud_hid_report(0, &default_report, sizeof(ds4_report_t)));
+  blink(2);
 
-  ds4_report_t* report = (ds4_report_t*)malloc(sizeof(ds4_report_t));
   uint32_t last_timestamp = 0;
   uint32_t timestamp = 0;
-  bool is_fresh = false;
+
+  bool is_updated = false;
+  bool is_connected = false;
 
   uint32_t counter = 0;
-  uint32_t blink = 0;
+  uint32_t blink_on = 0;
 
+  volatile uint32_t send_counter = 0;
+
+  absolute_time_t last_report_time = get_absolute_time();
+
+  ds4_report_t* report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+
+  sleep_ms(10);
   while (true) {
+    counter++;
     tud_task();
-    is_fresh = false;
-    {
-      uint32_t save = spin_lock_blocking(g_shared_data.lock);
-      timestamp = g_shared_data.timestamp;
-      if (timestamp > last_timestamp) {
-        last_timestamp = timestamp;
-        ds4_report_t* tmp = g_shared_data.ctrl;
-        g_shared_data.ctrl = report;
-        report = tmp;
-        is_fresh = true;
+    sleep_ms(100);
+
+    if (tud_hid_ready()) {
+      is_updated = false;
+      int32_t time_diff;
+      {
+        uint32_t save = spin_lock_blocking(g_shared_data.lock);
+
+        timestamp = g_shared_data.timestamp;
+        time_diff = timestamp - last_timestamp;
+
+        if (time_diff > 0) {
+          last_timestamp = timestamp;
+
+          ds4_report_t* tmp = g_shared_data.ctrl;
+          g_shared_data.ctrl = report_ptr;
+          report_ptr = tmp;
+          is_updated = true;
+          is_connected = true;
+        }
+        spin_unlock(g_shared_data.lock, save);
       }
-      spin_unlock(g_shared_data.lock, save);
-    }
-    if (is_fresh) {
-      tud_hid_report(0, report, sizeof(ds4_report_t));
-      counter++;
-      if (counter % 100 == 0) {
-        blink = !blink;
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, blink);
-        sleep_ms(10);
+
+      // report when dualshock4 is updated or send default report if update is
+      // not received for 5ms
+      if (is_updated) {
+        tud_hid_report(0, report_ptr, sizeof(ds4_report_t));
+        last_report_time = get_absolute_time();
+        // blink the LED every 100 reports
+        if (send_counter++ % 100 == 0) {
+          cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, blink_on ^= 1);
+        }
+      } else if (is_connected) {
+        absolute_time_t now = get_absolute_time();
+        int64_t elapsed_us = absolute_time_diff_us(last_report_time, now);
+        if (elapsed_us > 50000) {
+          tud_hid_report(0, &default_report, sizeof(ds4_report_t));
+          last_report_time = get_absolute_time();
+          is_connected = false;
+        }
+        printf("[INFO] Reset report\n");
       }
     }
+    sleep_ms(10);
   }
 
   return 0;

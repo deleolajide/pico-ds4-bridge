@@ -26,6 +26,8 @@
 #define DS4_GET_SIGNING_STATE 0xF2    // Get Signing State
 #define DS4_RESET_AUTH 0xF3           // Unknown (PS4 Report 0xF3)
 
+bool is_ds4_initialized = false;
+
 // Device Descriptor
 tusb_desc_device_t const desc_device = {
     .bLength = sizeof(tusb_desc_device_t),
@@ -393,11 +395,6 @@ const char* board_usb_get_serial(void) {
 
 //---------------------------------------------------------------------
 // tud_hid_get_report_cb
-//
-// 호스트가 HID 리포트를 요청할 때 호출됩니다.
-// 예를 들어, 호스트가 Feature 또는 Output 리포트를 읽으려고 할 때
-// 이 콜백이 호출되며, 버퍼에 응답 데이터를 채워 넣고, 데이터의 길이를 반환해야
-// 합니다. 이 예제에서는 간단하게 아무 데이터도 반환하지 않습니다.
 //---------------------------------------------------------------------
 uint16_t tud_hid_get_report_cb(uint8_t instance,
                                uint8_t report_id,
@@ -473,11 +470,6 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
 
 //---------------------------------------------------------------------
 // tud_hid_set_report_cb
-//
-// 호스트가 HID 리포트를 보내면 호출됩니다.
-// 예를 들어, Output 리포트나 Feature 리포트를 보내는 경우 이 함수가 호출되어
-// buffer의 데이터를 처리합니다.
-// 이 예제에서는 아무런 처리를 하지 않습니다.
 //---------------------------------------------------------------------
 void tud_hid_set_report_cb(uint8_t instance,
                            uint8_t report_id,
@@ -485,10 +477,6 @@ void tud_hid_set_report_cb(uint8_t instance,
                            uint8_t const* buffer,
                            uint16_t bufsize) {
   (void)instance;
-  (void)report_id;
-  (void)report_type;
-  (void)buffer;
-  (void)bufsize;
 
   printf("tud_hid_set_report_cb: ID=%d, Type=%d, Size=%d\n", report_id, report_type, bufsize);
   ds4_feature_output_report_t feature;
@@ -523,7 +511,13 @@ void tud_hid_set_report_cb(uint8_t instance,
       printf("%02X ", feature.padding[i]);
     }
     printf("\n");
+
+    is_ds4_initialized = true;
   }
+}
+
+void tud_mount_cb(void) {
+  printf("USB mounted\n");
 }
 
 void tud_umount_cb(void) {
