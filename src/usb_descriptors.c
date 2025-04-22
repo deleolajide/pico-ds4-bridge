@@ -389,7 +389,6 @@ uint16_t const* tud_descriptor_string_cb(uint8_t index, uint16_t langid) {
 }
 
 const char* board_usb_get_serial(void) {
-  // 실제 애플리케이션에서는 고유 시리얼 번호를 반환하도록 구현할 수 있습니다.
   return "000000000001";
 }
 

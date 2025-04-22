@@ -69,25 +69,19 @@ int main() {
     sleep_ms(2);
   } while (!tud_hid_report(0, &default_report, sizeof(ds4_report_t)));
   blink(2);
+  sleep_ms(10);
 
   uint32_t last_timestamp = 0;
   uint32_t timestamp = 0;
-
   bool is_updated = false;
   bool is_connected = false;
 
-  uint32_t counter = 0;
-  uint32_t blink_on = 0;
-
-  volatile uint32_t send_counter = 0;
-
+  volatile uint32_t blink_on = 0;
+  volatile uint32_t counter = 0;
   absolute_time_t last_report_time = get_absolute_time();
-
   ds4_report_t* report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
 
-  sleep_ms(10);
   while (true) {
-    counter++;
     tud_task();
     sleep_ms(100);
 
@@ -118,7 +112,7 @@ int main() {
         tud_hid_report(0, report_ptr, sizeof(ds4_report_t));
         last_report_time = get_absolute_time();
         // blink the LED every 100 reports
-        if (send_counter++ % 100 == 0) {
+        if (counter++ % 100 == 0) {
           cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, blink_on ^= 1);
         }
       } else if (is_connected) {
@@ -132,7 +126,7 @@ int main() {
         printf("[INFO] Reset report\n");
       }
     }
-    sleep_ms(10);
+    sleep_ms(5);
   }
 
   return 0;
