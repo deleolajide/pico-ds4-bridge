@@ -63,11 +63,11 @@ int main() {
     tud_task();
     sleep_ms(2);
   }
-  const ds4_report_t default_report = default_ds4_report();
+  const ds4_report_t zero_report = default_ds4_report();
   do {
     tud_task();
     sleep_ms(2);
-  } while (!tud_hid_report(0, &default_report, sizeof(ds4_report_t)));
+  } while (!tud_hid_report(0, &zero_report, sizeof(ds4_report_t)));
   blink(2);
   sleep_ms(10);
 
@@ -83,7 +83,6 @@ int main() {
 
   while (true) {
     tud_task();
-    sleep_ms(100);
 
     if (tud_hid_ready()) {
       is_updated = false;
@@ -119,14 +118,13 @@ int main() {
         absolute_time_t now = get_absolute_time();
         int64_t elapsed_us = absolute_time_diff_us(last_report_time, now);
         if (elapsed_us > 50000) {
-          tud_hid_report(0, &default_report, sizeof(ds4_report_t));
+          tud_hid_report(0, &zero_report, sizeof(ds4_report_t));
           last_report_time = get_absolute_time();
           is_connected = false;
         }
         printf("[INFO] Reset report\n");
       }
     }
-    sleep_ms(5);
   }
 
   return 0;
