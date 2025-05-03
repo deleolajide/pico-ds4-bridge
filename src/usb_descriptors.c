@@ -14,17 +14,18 @@
 #define GAMEPAD_ENDPOINT 1
 #define GAMEPAD_SIZE 64
 
-#define DS4_GET_CALIBRATION 0x02      // PS4 Controller Calibration
-#define DS4_DEFINITION 0x03           // PS4 Controller Definition
-#define DS4_SET_FEATURE_STATE 0x05    // PS4 Controller Features
-#define DS4_GET_MAC_ADDRESS 0x12      // PS4 Controller MAC
-#define DS4_SET_HOST_MAC 0x13         // Set Host MAC
-#define DS4_SET_USB_BT_CONTROL 0x14   // Set USB/BT Control Mode
-#define DS4_GET_VERSION_DATE 0xA3     // PS4 Controller Version & Date
-#define DS4_SET_AUTH_PAYLOAD 0xF0     // Set Auth Payload
-#define DS4_GET_SIGNATURE_NONCE 0xF1  // Get Signature Nonce
-#define DS4_GET_SIGNING_STATE 0xF2    // Get Signing State
-#define DS4_RESET_AUTH 0xF3           // Unknown (PS4 Report 0xF3)
+#define DS4_GET_CALIBRATION 0x02        // PS4 Controller Calibration
+#define DS4_DEFINITION 0x03             // PS4 Controller Definition
+#define DS4_SET_FEATURE_STATE 0x05      // PS4 Controller Features
+#define DS4_GET_MAC_ADDRESS 0x12        // PS4 Controller MAC
+#define DS4_GET_MAC_ADDRESS_SHORT 0x81  // PS4 Controller MAC
+#define DS4_SET_HOST_MAC 0x13           // Set Host MAC
+#define DS4_SET_USB_BT_CONTROL 0x14     // Set USB/BT Control Mode
+#define DS4_GET_VERSION_DATE 0xA3       // PS4 Controller Version & Date
+#define DS4_SET_AUTH_PAYLOAD 0xF0       // Set Auth Payload
+#define DS4_GET_SIGNATURE_NONCE 0xF1    // Get Signature Nonce
+#define DS4_GET_SIGNING_STATE 0xF2      // Get Signing State
+#define DS4_RESET_AUTH 0xF3             // Unknown (PS4 Report 0xF3)
 
 bool is_ds4_initialized = false;
 
@@ -338,10 +339,10 @@ static const uint8_t ds4_configuration_descriptor[] = {
 
 // --- String Descriptors ---
 char const* string_desc_arr[] = {
-    (const char[]){0x09, 0x04},         // 0: Language ID (United States)
-    "Sony Interactive Entertainment",   // 1: Manufacturer
-    "DualShock 4 Wireless Controller",  // 2: Product
-    "123456789abc",                     // 3: Serial (DUMMY)
+    (const char[]){0x09, 0x04},        // 0: Language ID (United States)
+    "Sony Interactive Entertainment",  // 1: Manufacturer
+    "Wireless Controller",             // 2: Product
+    "123456789abc",                    // 3: Serial (DUMMY)
 };
 
 static uint16_t _desc_str[32];
@@ -401,9 +402,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
                                uint8_t* buffer,
                                uint16_t reqlen) {
   (void)instance;
-  (void)report_type;
-
-  printf("tud_hid_get_report_cb: ID=%d, Type=%d, Size=%d\n", report_id, report_type, reqlen);
+  printf("[INFO] Got hid report: id=%d, type=%d, size=%d\n", report_id, report_type, reqlen);
 
   uint16_t responseLen = 0;
   switch (report_id) {
@@ -427,7 +426,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
     }
     case DS4_GET_MAC_ADDRESS: {
       static uint8_t mac_address[] = {
-          0x00, 0x00, 0x00, 0x00, 0x00, 0x00,  // device MAC address
+          0x01, 0x02, 0x03, 0x04, 0x05, 0x06,  // device MAC address
           0x08, 0x25, 0x00,                    // BT device class
           0x00, 0x00, 0x00, 0x00, 0x00, 0x00   // host MAC address
       };
@@ -436,6 +435,17 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
       }
       responseLen = max(reqlen, sizeof(mac_address));
       memcpy(buffer, mac_address, responseLen);
+      return responseLen;
+    }
+    case DS4_GET_MAC_ADDRESS_SHORT: {
+      static uint8_t mac_address_short[] = {
+          0x01, 0x02, 0x03, 0x04, 0x05, 0x06,  // device MAC address
+      };
+      if (reqlen < sizeof(mac_address_short)) {
+        return -1;
+      }
+      responseLen = max(reqlen, sizeof(mac_address_short));
+      memcpy(buffer, mac_address_short, responseLen);
       return responseLen;
     }
     case DS4_GET_VERSION_DATE: {
@@ -462,6 +472,9 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
       memcpy(buffer, reset_auth, responseLen);
       return responseLen;
     }
+    default:
+      printf("[Error]: Unknown report ID %d\n", report_id);
+      break;
   }
 
   return -1;
