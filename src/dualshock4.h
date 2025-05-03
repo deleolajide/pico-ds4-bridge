@@ -85,16 +85,15 @@ typedef struct {
   ds4_touchpad_t p2;
 } ds4_touchpad_data_t;
 
-typedef struct {
+typedef struct __attribute__((packed)) {
   int16_t x;
   int16_t y;
   int16_t z;
 } ds4_sensor_t;
 
 typedef struct __attribute__((packed)) {
-  uint16_t battery;
-  ds4_sensor_t gyroscope;
-  ds4_sensor_t accelerometer;
+  ds4_sensor_t gyro;
+  ds4_sensor_t accel;
   uint8_t misc[4];
   uint8_t powerLevel : 4;
   uint8_t charging : 1;
@@ -109,11 +108,11 @@ typedef struct __attribute__((packed)) {
 } ds4_sensor_data_t;
 
 typedef struct __attribute__((packed)) {
-  uint8_t report_id;
-  uint8_t left_stick_x;
-  uint8_t left_stick_y;
-  uint8_t right_stick_x;
-  uint8_t right_stick_y;
+  uint8_t report_id;      // 0
+  uint8_t left_stick_x;   // 1
+  uint8_t left_stick_y;   // 2
+  uint8_t right_stick_x;  // 3
+  uint8_t right_stick_y;  // 4
 
   // 4 bits for the d-pad.
   uint32_t dpad : 4;
@@ -137,12 +136,13 @@ typedef struct __attribute__((packed)) {
   // 6 bit report counter.
   uint32_t report_counter : 6;
 
-  uint32_t left_trigger : 8;
-  uint32_t right_trigger : 8;
+  uint32_t left_trigger : 8;   // 8
+  uint32_t right_trigger : 8;  // 9
 
   // 16 bit timing counter
-  uint16_t axis_timing;
+  uint16_t axis_timing;  // 10-11
 
+  uint16_t battery;
   ds4_sensor_data_t sensor_data;
 
   uint8_t touchpad_active : 2;

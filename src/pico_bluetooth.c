@@ -25,6 +25,9 @@ static void pico_bluetooth_init(int argc, const char** argv) {
   ARG_UNUSED(argc);
   ARG_UNUSED(argv);
   ds4_report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+  if (ds4_report_ptr != NULL) {
+    memset(ds4_report_ptr, 0, sizeof(ds4_report_t));
+  }
 }
 
 static void pico_bluetooth_on_init_complete(void) {
@@ -84,16 +87,16 @@ static const uni_property_t* pico_bluetooth_get_property(uni_property_idx_t idx)
 }
 
 static void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4) {
-  const uni_gamepad_t* uni_ctl = &uni->gamepad;
+  const uni_gamepad_t* gamepad = &uni->gamepad;
 
   ds4->report_id = 0x01;
-  ds4->left_stick_x = (uint8_t)((uni_ctl->axis_x - 1) / 4 + 0x7F);
-  ds4->left_stick_y = (uint8_t)((uni_ctl->axis_y - 1) / 4 + 0x7F);
-  ds4->right_stick_x = (uint8_t)((uni_ctl->axis_rx - 1) / 4 + 0x7F);
-  ds4->right_stick_y = (uint8_t)((uni_ctl->axis_ry - 1) / 4 + 0x7F);
-  ds4->dpad = (uint32_t)(dpad_mask_to_hat(uni_ctl->dpad & 0x0F));
+  ds4->left_stick_x = (uint8_t)(gamepad->axis_x / 4 + 127);
+  ds4->left_stick_y = (uint8_t)(gamepad->axis_y / 4 + 127);
+  ds4->right_stick_x = (uint8_t)(gamepad->axis_rx / 4 + 127);
+  ds4->right_stick_y = (uint8_t)(gamepad->axis_ry / 4 + 127);
+  ds4->dpad = (uint32_t)(dpad_mask_to_hat(gamepad->dpad & 0x0F));
 
-  uint16_t buttons = uni_ctl->buttons;
+  uint16_t buttons = gamepad->buttons;
   ds4->button_west = (buttons >> 0) & 0x01;
   ds4->button_south = (buttons >> 1) & 0x01;
   ds4->button_east = (buttons >> 2) & 0x01;
@@ -113,18 +116,20 @@ static void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4) {
   ds4->report_counter = report_counter & 0x3F;
   report_counter++;
 
-  ds4->left_trigger = (uint8_t)(uni_ctl->brake / 4);
-  ds4->right_trigger = (uint8_t)(uni_ctl->throttle / 4);
+  ds4->left_trigger = (uint8_t)(gamepad->brake / 4);
+  ds4->right_trigger = (uint8_t)(gamepad->throttle / 4);
   ds4->axis_timing = 0;
 
-  ds4->sensor_data.gyroscope.x = uni_ctl->gyro[0];
-  ds4->sensor_data.gyroscope.y = uni_ctl->gyro[1];
-  ds4->sensor_data.gyroscope.z = uni_ctl->gyro[2];
-  ds4->sensor_data.accelerometer.x = uni_ctl->accel[0];
-  ds4->sensor_data.accelerometer.y = uni_ctl->accel[1];
-  ds4->sensor_data.accelerometer.z = uni_ctl->accel[2];
-  ds4->sensor_data.battery = uni->battery;
+  ds4->battery = uni->battery / 25;
+  ds4->sensor_data.gyro.x = gamepad->gyro[0];
+  ds4->sensor_data.gyro.y = gamepad->gyro[1];
+  ds4->sensor_data.gyro.z = gamepad->gyro[2];
+  ds4->sensor_data.accel.x = gamepad->accel[0];
+  ds4->sensor_data.accel.y = gamepad->accel[1];
+  ds4->sensor_data.accel.z = gamepad->accel[2];
+
   ds4->touchpad_active = 0;
+  ds4->padding = 0;
   ds4->tpad_increment = 0;
   memset(&ds4->touchpad_data, 0, sizeof(ds4->touchpad_data));
   memset(ds4->mystery_2, 0, sizeof(ds4->mystery_2));
