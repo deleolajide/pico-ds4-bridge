@@ -70,6 +70,7 @@ int main() {
   } while (!tud_hid_report(0, &zero_report, sizeof(ds4_report_t)));
   blink(2);
   sleep_ms(10);
+  printf("[INFO] Bluetooth initialized\n");
 
   uint32_t last_timestamp = 0;
   uint32_t timestamp = 0;
@@ -80,6 +81,11 @@ int main() {
   volatile uint32_t counter = 0;
   absolute_time_t last_report_time = get_absolute_time();
   ds4_report_t* report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+  memset(report_ptr, 0, sizeof(ds4_report_t));
+
+  uint32_t ds4_update_count = 0;
+  uint32_t ds4_missed_count = 0;
+  absolute_time_t stats_start = get_absolute_time();
 
   while (true) {
     tud_task();
@@ -110,19 +116,32 @@ int main() {
       if (is_updated) {
         tud_hid_report(0, report_ptr, sizeof(ds4_report_t));
         last_report_time = get_absolute_time();
+        ds4_update_count++;
+
         // blink the LED every 100 reports
         if (counter++ % 100 == 0) {
           cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, blink_on ^= 1);
+          sleep_ms(1);
         }
       } else if (is_connected) {
         absolute_time_t now = get_absolute_time();
         int64_t elapsed_us = absolute_time_diff_us(last_report_time, now);
-        if (elapsed_us > 50000) {
+        if (elapsed_us > 40000) {
           tud_hid_report(0, &zero_report, sizeof(ds4_report_t));
           last_report_time = get_absolute_time();
           is_connected = false;
+          ds4_missed_count++;
+          printf("[INFO] Reset report\n");
         }
-        printf("[INFO] Reset report\n");
+      }
+
+      absolute_time_t now = get_absolute_time();
+      int64_t stat_elapsed_us = absolute_time_diff_us(stats_start, now);
+      if (stat_elapsed_us >= 1000000) {
+        printf("[STATS] 1s Interval: Updates: %u, Misses: %u\n", ds4_update_count, ds4_missed_count);
+        ds4_update_count = 0;
+        ds4_missed_count = 0;
+        stats_start = now;
       }
     }
   }
