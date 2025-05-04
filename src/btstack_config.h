@@ -55,7 +55,7 @@
 #define MAX_NR_RFCOMM_SERVICES 1
 #define MAX_NR_SERVICE_RECORD_ITEMS 4
 #define MAX_NR_SM_LOOKUP_ENTRIES 3
-#define MAX_NR_WHITELIST_ENTRIES 16
+#define MAX_NR_WHITELIST_ENTRIES 0
 #define MAX_NR_LE_DEVICE_DB_ENTRIES 16
 
 // Limit number of ACL/SCO Buffer to use by stack to avoid cyw43 shared bus overrun

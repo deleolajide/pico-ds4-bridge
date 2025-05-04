@@ -92,20 +92,20 @@ typedef struct __attribute__((packed)) {
 } ds4_sensor_t;
 
 typedef struct __attribute__((packed)) {
-  ds4_sensor_t gyro;
-  ds4_sensor_t accel;
-  uint8_t misc[4];
-  uint8_t powerLevel : 4;
-  uint8_t charging : 1;
-  uint8_t headphones : 1;
+  ds4_sensor_t gyro;   // 6 bytes
+  ds4_sensor_t accel;  // 6 bytes
+  uint8_t misc[5];     // 5 bytes
+  uint8_t batteryLevel : 4;
+  uint8_t usb : 1;
   uint8_t microphone : 1;
-  uint8_t extension : 1;
+  uint8_t headphone : 1;
+  uint8_t extension : 1;  // 1 byte
   uint8_t extData0 : 1;
   uint8_t extData1 : 1;
   uint8_t notConnected : 1;
-  uint8_t extData3 : 5;
-  uint8_t misc2;
-} ds4_sensor_data_t;
+  uint8_t extData3 : 5;  // 1 byte
+  uint8_t misc2;         // 1 byte
+} ds4_sensor_data_t;     // 19 bytes
 
 typedef struct __attribute__((packed)) {
   uint8_t report_id;      // 0
@@ -132,24 +132,21 @@ typedef struct __attribute__((packed)) {
   uint32_t button_r3 : 1;
   uint32_t button_home : 1;
   uint32_t button_touchpad : 1;
-
-  // 6 bit report counter.
   uint32_t report_counter : 6;
-
   uint32_t left_trigger : 8;   // 8
   uint32_t right_trigger : 8;  // 9
+  uint16_t axis_timing;        // timing counter: 10-11
 
-  // 16 bit timing counter
-  uint16_t axis_timing;  // 10-11
-
-  uint16_t battery;
+  uint8_t battery;  // 12
   ds4_sensor_data_t sensor_data;
 
+  uint8_t unknown[7];
+  uint8_t num_trackpad_packets;
   uint8_t touchpad_active : 2;
   uint8_t padding : 6;
   uint8_t tpad_increment;
   ds4_touchpad_data_t touchpad_data;
-  uint8_t mystery_2[21];
+  uint8_t mystery_2[13];
 } ds4_report_t;
 
 ds4_report_t default_ds4_report();

@@ -42,6 +42,7 @@ int main() {
 
   // notify the user that the device started
   blink(2);
+  sleep_ms(250);
 
   // initialize GPIO for UART
   uart_init(uart0, 115200);
@@ -52,8 +53,23 @@ int main() {
   g_shared_data.lock = spin_lock_init(0);
   g_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
   g_shared_data.ctrl = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+  if (g_shared_data.ctrl == NULL) {
+    printf("failed to allocate memory for global report\n");
+    return -1;
+  }
+  memset(g_shared_data.ctrl, 0, sizeof(ds4_report_t));
+  ds4_report_t* local_report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+  if (local_report_ptr == NULL) {
+    printf("failed to allocate memory for local report\n");
+    return -1;
+  }
+  memset(local_report_ptr, 0, sizeof(ds4_report_t));
 
+  // Note(wy.choi): This needs to be called before bluetooth_init to bluetooth
+  // power control to be ready.
+  sleep_ms(250);
   multicore_launch_core1(bluetooth_tasks);
+  sleep_ms(250);
 
   tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO};
   tusb_init(BOARD_TUD_RHPORT, &dev_init);
@@ -72,6 +88,8 @@ int main() {
   sleep_ms(10);
   printf("[INFO] Bluetooth initialized\n");
 
+  absolute_time_t started = get_absolute_time();
+
   uint32_t last_timestamp = 0;
   uint32_t timestamp = 0;
   bool is_updated = false;
@@ -79,9 +97,8 @@ int main() {
 
   volatile uint32_t blink_on = 0;
   volatile uint32_t counter = 0;
+
   absolute_time_t last_report_time = get_absolute_time();
-  ds4_report_t* report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
-  memset(report_ptr, 0, sizeof(ds4_report_t));
 
   uint32_t ds4_update_count = 0;
   uint32_t ds4_missed_count = 0;
@@ -103,8 +120,8 @@ int main() {
           last_timestamp = timestamp;
 
           ds4_report_t* tmp = g_shared_data.ctrl;
-          g_shared_data.ctrl = report_ptr;
-          report_ptr = tmp;
+          g_shared_data.ctrl = local_report_ptr;
+          local_report_ptr = tmp;
           is_updated = true;
           is_connected = true;
         }
@@ -114,7 +131,7 @@ int main() {
       // report when dualshock4 is updated or send default report if update is
       // not received for 5ms
       if (is_updated) {
-        tud_hid_report(0, report_ptr, sizeof(ds4_report_t));
+        tud_hid_report(0, local_report_ptr, sizeof(ds4_report_t));
         last_report_time = get_absolute_time();
         ds4_update_count++;
 
@@ -138,7 +155,8 @@ int main() {
       absolute_time_t now = get_absolute_time();
       int64_t stat_elapsed_us = absolute_time_diff_us(stats_start, now);
       if (stat_elapsed_us >= 1000000) {
-        printf("[STATS] 1s Interval: Updates: %u, Misses: %u\n", ds4_update_count, ds4_missed_count);
+        double elapsed_sec = absolute_time_diff_us(started, now) / 1000000.0;
+        printf("[INFO] Elapsed: %f, Updates: %u, Misses: %u\n", elapsed_sec, ds4_update_count, ds4_missed_count);
         ds4_update_count = 0;
         ds4_missed_count = 0;
         stats_start = now;
