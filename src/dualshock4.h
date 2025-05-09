@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#include <controller/uni_controller.h>
+
 #define DS4_JOYSTICK_MIN 0x00
 #define DS4_JOYSTICK_MID 0x7F
 #define DS4_JOYSTICK_MAX 0xFF
@@ -152,5 +154,7 @@ typedef struct __attribute__((packed)) {
 ds4_report_t default_ds4_report();
 
 uint8_t dpad_mask_to_hat(uint8_t mask);
+
+void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4);
 
 #endif  // DUALSHOCK4_H_
