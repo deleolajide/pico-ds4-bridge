@@ -17,92 +17,33 @@
 #error "Pico W must use BLUEPAD32_PLATFORM_CUSTOM"
 #endif
 
-void bluetooth_tasks() {
-  bluetooth_init();
-  bluetooth_run();
-}
-
-void blink(uint32_t count) {
-  while (count-- > 0) {
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-    sleep_ms(200);
-    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-    sleep_ms(200);
-  }
-}
-
-int main() {
-  stdio_init_all();
-
-  // initialize CYW43 driver architecture
-  if (cyw43_arch_init()) {
-    printf("failed to initialise cyw43_arch\n");
-    return -1;
-  }
-
-  // notify the user that the device started
-  blink(2);
-  sleep_ms(250);
-
-  // initialize GPIO for UART
-  uart_init(uart0, 115200);
-  gpio_set_function(0, GPIO_FUNC_UART);  // GP0: TX
-  gpio_set_function(1, GPIO_FUNC_UART);  // GP1: RX
-
-  // initialize dualshock4 shared data
-  g_shared_data.lock = spin_lock_init(0);
-  g_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
-  g_shared_data.ctrl = (ds4_report_t*)malloc(sizeof(ds4_report_t));
-  if (g_shared_data.ctrl == NULL) {
-    printf("failed to allocate memory for global report\n");
-    return -1;
-  }
-  memset(g_shared_data.ctrl, 0, sizeof(ds4_report_t));
-  ds4_report_t* local_report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
-  if (local_report_ptr == NULL) {
-    printf("failed to allocate memory for local report\n");
-    return -1;
-  }
-  memset(local_report_ptr, 0, sizeof(ds4_report_t));
-
-  // Note(wy.choi): This needs to be called before bluetooth_init to bluetooth
-  // power control to be ready.
-  sleep_ms(250);
-  multicore_launch_core1(bluetooth_tasks);
-  sleep_ms(250);
-
-  tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO};
-  tusb_init(BOARD_TUD_RHPORT, &dev_init);
-
-  // Initialize USB HID Device stack
-  while (!is_ds4_initialized) {
-    tud_task();
-    sleep_ms(2);
-  }
+void usb_thread_run() {
   const ds4_report_t zero_report = default_ds4_report();
-  do {
-    tud_task();
-    sleep_ms(2);
-  } while (!tud_hid_report(0, &zero_report, sizeof(ds4_report_t)));
-  blink(2);
-  sleep_ms(10);
-  printf("[INFO] Bluetooth initialized\n");
 
-  absolute_time_t started = get_absolute_time();
-
+  // Communication variables
   uint32_t last_timestamp = 0;
   uint32_t timestamp = 0;
   bool is_updated = false;
   bool is_connected = false;
+  absolute_time_t last_report_time = get_absolute_time();
 
+  // Blink LED every 100 reports
   volatile uint32_t blink_on = 0;
   volatile uint32_t counter = 0;
 
-  absolute_time_t last_report_time = get_absolute_time();
-
+  // Stats based on time interval
+  absolute_time_t stat_start_time = get_absolute_time();
+  absolute_time_t last_stat_time = get_absolute_time();
   uint32_t ds4_update_count = 0;
   uint32_t ds4_missed_count = 0;
-  absolute_time_t stats_start = get_absolute_time();
+
+  // Allocate memory for the local report
+  ds4_report_t* local_report_ptr = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+  if (local_report_ptr == NULL) {
+    printf("failed to allocate memory for local report\n");
+    return;
+  }
+  memset(local_report_ptr, 0, sizeof(ds4_report_t));
 
   while (true) {
     tud_task();
@@ -148,21 +89,84 @@ int main() {
           last_report_time = get_absolute_time();
           is_connected = false;
           ds4_missed_count++;
-          printf("[INFO] Reset report\n");
+          printf("[INFO:USB] USB report missed for %d us.\n", elapsed_us);
         }
       }
 
       absolute_time_t now = get_absolute_time();
-      int64_t stat_elapsed_us = absolute_time_diff_us(stats_start, now);
+      int64_t stat_elapsed_us = absolute_time_diff_us(last_stat_time, now);
       if (stat_elapsed_us >= 1000000) {
-        double elapsed_sec = absolute_time_diff_us(started, now) / 1000000.0;
-        printf("[INFO] Elapsed: %f, Updates: %u, Misses: %u\n", elapsed_sec, ds4_update_count, ds4_missed_count);
+        double elapsed_sec = absolute_time_diff_us(stat_start_time, now) / 1000000.0;
+        printf("[INFO:USB] Elapsed: %f, Updates: %u, Misses: %u\n", elapsed_sec, ds4_update_count, ds4_missed_count);
         ds4_update_count = 0;
         ds4_missed_count = 0;
-        stats_start = now;
+        last_stat_time = now;
       }
     }
+    sleep_ms(1);
   }
+}
+
+void blink(uint32_t count) {
+  while (count-- > 0) {
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+    sleep_ms(200);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+    sleep_ms(200);
+  }
+}
+
+int main() {
+  stdio_init_all();
+
+  // initialize CYW43 driver architecture
+  if (cyw43_arch_init()) {
+    printf("failed to initialise cyw43_arch\n");
+    return -1;
+  }
+
+  // notify the user that the device started
+  blink(2);
+  sleep_ms(250);
+
+  // initialize GPIO for UART
+  uart_init(uart0, 115200);
+  gpio_set_function(0, GPIO_FUNC_UART);  // GP0: TX
+  gpio_set_function(1, GPIO_FUNC_UART);  // GP1: RX
+
+  // initialize dualshock4 shared data
+  g_shared_data.lock = spin_lock_init(0);
+  g_shared_data.timestamp = to_ms_since_boot(get_absolute_time());
+  g_shared_data.ctrl = (ds4_report_t*)malloc(sizeof(ds4_report_t));
+  if (g_shared_data.ctrl == NULL) {
+    printf("failed to allocate memory for global report\n");
+    return -1;
+  }
+  memset(g_shared_data.ctrl, 0, sizeof(ds4_report_t));
+
+  sleep_ms(250);
+
+  tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO};
+  tusb_init(BOARD_TUD_RHPORT, &dev_init);
+
+  // Initialize USB HID Device stack
+  while (!is_ds4_initialized) {
+    tud_task();
+    sleep_ms(2);
+  }
+  const ds4_report_t zero_report = default_ds4_report();
+  do {
+    tud_task();
+    sleep_ms(2);
+  } while (!tud_hid_report(0, &zero_report, sizeof(ds4_report_t)));
+  blink(2);
+
+  bluetooth_init();
+
+  // Initialize the USB thread
+  multicore_launch_core1(usb_thread_run);
+
+  bluetooth_run();
 
   return 0;
 }
