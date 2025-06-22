@@ -67,18 +67,20 @@ uint8_t dpad_mask_to_hat(uint8_t mask) {
   }
 }
 
-void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4) {
-  const uni_gamepad_t* gamepad = &uni->gamepad;
+void convert_uni_to_ds4(const uni_gamepad_t gamepad, const uint8_t battery, ds4_report_t* ds4) {
+  if (ds4 == NULL) {
+    return;
+  }
 
   ds4->report_id = 0x01;
-  ds4->left_stick_x = (uint8_t)(gamepad->axis_x / 4 + 127);
-  ds4->left_stick_y = (uint8_t)(gamepad->axis_y / 4 + 127);
-  ds4->right_stick_x = (uint8_t)(gamepad->axis_rx / 4 + 127);
-  ds4->right_stick_y = (uint8_t)(gamepad->axis_ry / 4 + 127);
-  ds4->dpad = (uint32_t)(dpad_mask_to_hat(gamepad->dpad & 0x0F));
+  ds4->left_stick_x = (uint8_t)(gamepad.axis_x / 4 + 127);
+  ds4->left_stick_y = (uint8_t)(gamepad.axis_y / 4 + 127);
+  ds4->right_stick_x = (uint8_t)(gamepad.axis_rx / 4 + 127);
+  ds4->right_stick_y = (uint8_t)(gamepad.axis_ry / 4 + 127);
+  ds4->dpad = (uint32_t)(dpad_mask_to_hat(gamepad.dpad & 0x0F));
 
-  uint16_t buttons = gamepad->buttons;
-  uint16_t misc_buttons = gamepad->misc_buttons;
+  uint16_t buttons = gamepad.buttons;
+  uint16_t misc_buttons = gamepad.misc_buttons;
 
   // buttons
   // printf("buttons: %04X\n", buttons);
@@ -102,29 +104,29 @@ void convert_uni_to_ds4(const uni_controller_t* uni, ds4_report_t* ds4) {
   static uint8_t report_counter = 0;
   ds4->report_counter = report_counter++ & 0x3F;
 
-  ds4->left_trigger = (uint8_t)(gamepad->brake / 4);
-  ds4->right_trigger = (uint8_t)(gamepad->throttle / 4);
+  ds4->left_trigger = (uint8_t)(gamepad.brake / 4);
+  ds4->right_trigger = (uint8_t)(gamepad.throttle / 4);
   ds4->axis_timing = 0;
 
   // sensor data
-  ds4->battery = (uni->battery / 25) & 0x0F;
-  ds4->sensor_data.batteryLevel = (uni->battery / 25) & 0x0F;
+  ds4->battery = (battery / 25) & 0x0F;
+  ds4->sensor_data.batteryLevel = (battery / 25) & 0x0F;
   ds4->sensor_data.usb = 0x0;
   ds4->sensor_data.microphone = 0x0;
   ds4->sensor_data.headphone = 0x0;
   ds4->sensor_data.extension = 0x0;
   ds4->sensor_data.misc2 = 0x00;
 
-  ds4->sensor_data.gyro.x = gamepad->gyro[0];
-  ds4->sensor_data.gyro.y = gamepad->gyro[1];
-  ds4->sensor_data.gyro.z = gamepad->gyro[2];
-  ds4->sensor_data.accel.x = gamepad->accel[0];
-  ds4->sensor_data.accel.y = gamepad->accel[1];
-  ds4->sensor_data.accel.z = gamepad->accel[2];
+  ds4->sensor_data.gyro.x = gamepad.gyro[0];
+  ds4->sensor_data.gyro.y = gamepad.gyro[1];
+  ds4->sensor_data.gyro.z = gamepad.gyro[2];
+  ds4->sensor_data.accel.x = gamepad.accel[0];
+  ds4->sensor_data.accel.y = gamepad.accel[1];
+  ds4->sensor_data.accel.z = gamepad.accel[2];
 
   ds4->touchpad_active = 0x0;
   ds4->padding = 0;
   ds4->tpad_increment = 0;
-  memset(&ds4->touchpad_data, 0, sizeof(ds4->touchpad_data));
-  memset(ds4->mystery_2, 0, sizeof(ds4->mystery_2));
+  // memset(&ds4->touchpad_data, 0, sizeof(ds4->touchpad_data));
+  // memset(ds4->mystery_2, 0, sizeof(ds4->mystery_2));
 }

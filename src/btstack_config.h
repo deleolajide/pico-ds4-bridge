@@ -65,7 +65,7 @@
 // Enable and configure HCI Controller to Host Flow Control to avoid cyw43 shared bus overrun
 #define ENABLE_HCI_CONTROLLER_TO_HOST_FLOW_CONTROL
 #define HCI_HOST_ACL_PACKET_LEN 1024
-#define HCI_HOST_ACL_PACKET_NUM 3
+#define HCI_HOST_ACL_PACKET_NUM 6
 #define HCI_HOST_SCO_PACKET_LEN 120
 #define HCI_HOST_SCO_PACKET_NUM 3
 

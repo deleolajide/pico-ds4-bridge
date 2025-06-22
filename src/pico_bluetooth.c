@@ -87,6 +87,8 @@ static void pico_bluetooth_on_controller_data(uni_hid_device_t* d, uni_controlle
 
   count++;
   absolute_time_t now = get_absolute_time();
+  uint64_t now_since_boot = to_us_since_boot(now);
+
   int64_t elapsed_us = absolute_time_diff_us(last_updated, now);
   if (elapsed_us >= 1000000) {
     printf("[INFO:BT] Bluetooth data received: %u\n", count);
@@ -94,24 +96,15 @@ static void pico_bluetooth_on_controller_data(uni_hid_device_t* d, uni_controlle
     count = 0;
   }
 
-  uint64_t now_since_boot = to_us_since_boot(get_absolute_time());
-  ds4_report_t* tmp = NULL;
-  uint32_t save = 0;
-
   switch (ctl->klass) {
     case UNI_CONTROLLER_CLASS_GAMEPAD:
       // Print device Id and dump gamepad.
-      // logi("(%p) id=%d ", d, uni_hid_device_get_idx_for_instance(d));
       // uni_controller_dump(ctl);
-
-      {
-        save = spin_lock_blocking(g_shared_data.lock);
-
-        convert_uni_to_ds4(ctl, g_shared_data.ctrl);
-        g_shared_data.timestamp = now_since_boot;
-
-        spin_unlock(g_shared_data.lock, save);
-      }
+      seqlock_write_begin(&g_ds4_shared.seq);
+      g_ds4_shared.data.gamepad = ctl->gamepad;
+      g_ds4_shared.data.battery = ctl->battery;
+      g_ds4_shared.data.timestamp = now_since_boot;
+      seqlock_write_end(&g_ds4_shared.seq);
       break;
     case UNI_CONTROLLER_CLASS_BALANCE_BOARD:
       // DO NOTHING
@@ -182,6 +175,7 @@ void bluetooth_init(void) {
 
   // Initialize BP32
   uni_init(0, NULL);
+  uni_bt_enable_new_connections_unsafe(true);
 }
 
 void bluetooth_run(void) {

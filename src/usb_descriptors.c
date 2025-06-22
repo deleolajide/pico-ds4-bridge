@@ -490,48 +490,62 @@ void tud_hid_set_report_cb(uint8_t instance,
                            uint16_t bufsize) {
   (void)instance;
 
-  printf("tud_hid_set_report_cb: ID=%d, Type=%d, Size=%d\n", report_id, report_type, bufsize);
+  static int report_count = 0;
+  static absolute_time_t last_updated = 0;
+
+  absolute_time_t now = get_absolute_time();
+  int64_t elapsed_us = absolute_time_diff_us(last_updated, now);
+
+  report_count++;
+  if (elapsed_us > 1000000) {  // 1 sec
+    printf("[INFO] Report received: %d count\n", report_count);
+    last_updated = now;
+    report_count = 0;
+  }
+
+  // printf("tud_hid_set_report_cb: ID=%d, Type=%d, Size=%d\n", report_id, report_type, bufsize);
   ds4_feature_output_report_t feature;
   if (report_type == HID_REPORT_TYPE_OUTPUT) {
-    if (report_id == 0) {
+    if (report_id == 0 && !is_ds4_initialized) {
       memcpy(&feature, buffer, bufsize);
     }
-    printf("Feature Report:\n");
-    printf("Report ID: %d\n", feature.reportID);
-    printf("Enable Update Rumble: %d\n", feature.enableUpdateRumble);
-    printf("Enable Update LED: %d\n", feature.enableUpdateLED);
-    printf("Enable Update LED Blink: %d\n", feature.enableUpdateLEDBlink);
-    printf("Enable Update Ext Data: %d\n", feature.enableUpdateExtData);
-    printf("Enable Update Volume Left: %d\n", feature.enableUpdateVolLeft);
-    printf("Enable Update Volume Right: %d\n", feature.enableUpdateVolRight);
-    printf("Enable Update Volume Mic: %d\n", feature.enableUpdateVolMic);
-    printf("Enable Update Volume Speaker: %d\n", feature.enableUpdateVolSpeaker);
-    printf("Rumble: %d, %d\n", feature.rumbleLeft, feature.rumbleRight);
-    printf("LED: %d, %d, %d\n", feature.ledRed, feature.ledGreen, feature.ledBlue);
-    printf("LED Blink: %d, %d\n", feature.ledBlinkOn, feature.ledBlinkOff);
-    printf("Volume: %d, %d, %d, %d\n", feature.volumeLeft, feature.volumeRight, feature.volumeMic,
-           feature.volumeSpeaker);
-    printf("Ext Data: ");
-    for (int i = 0; i < sizeof(feature.extData); i++) {
-      printf("%02X ", feature.extData[i]);
-    }
-    printf("\n");
-    printf("Unknown: %d\n", feature.unknown0);
-    printf("Unknown Audio: %d\n", feature.unknownAudio);
-    printf("Padding: ");
-    for (int i = 0; i < sizeof(feature.padding); i++) {
-      printf("%02X ", feature.padding[i]);
-    }
-    printf("\n");
+    // printf("Feature Report:\n");
+    // printf("Report ID: %d\n", feature.reportID);
+    // printf("Enable Update Rumble: %d\n", feature.enableUpdateRumble);
+    // printf("Enable Update LED: %d\n", feature.enableUpdateLED);
+    // printf("Enable Update LED Blink: %d\n", feature.enableUpdateLEDBlink);
+    // printf("Enable Update Ext Data: %d\n", feature.enableUpdateExtData);
+    // printf("Enable Update Volume Left: %d\n", feature.enableUpdateVolLeft);
+    // printf("Enable Update Volume Right: %d\n", feature.enableUpdateVolRight);
+    // printf("Enable Update Volume Mic: %d\n", feature.enableUpdateVolMic);
+    // printf("Enable Update Volume Speaker: %d\n", feature.enableUpdateVolSpeaker);
+    // printf("Rumble: %d, %d\n", feature.rumbleLeft, feature.rumbleRight);
+    // printf("LED: %d, %d, %d\n", feature.ledRed, feature.ledGreen, feature.ledBlue);
+    // printf("LED Blink: %d, %d\n", feature.ledBlinkOn, feature.ledBlinkOff);
+    // printf("Volume: %d, %d, %d, %d\n", feature.volumeLeft, feature.volumeRight, feature.volumeMic,
+    //        feature.volumeSpeaker);
+    // printf("Ext Data: ");
+    // for (int i = 0; i < sizeof(feature.extData); i++) {
+    //   printf("%02X ", feature.extData[i]);
+    // }
+    // printf("\n");
+    // printf("Unknown: %d\n", feature.unknown0);
+    // printf("Unknown Audio: %d\n", feature.unknownAudio);
+    // printf("Padding: ");
+    // for (int i = 0; i < sizeof(feature.padding); i++) {
+    //   printf("%02X ", feature.padding[i]);
+    // }
+    // printf("\n");
+    // printf("[INFO] Received feature report with ID %d, size %d\n", report_id, bufsize);
 
     is_ds4_initialized = true;
   }
 }
 
 void tud_mount_cb(void) {
-  printf("USB mounted\n");
+  printf("[INFO] USB mounted\n");
 }
 
 void tud_umount_cb(void) {
-  printf("USB unmounted\n");
+  printf("[INFO] USB unmounted\n");
 }

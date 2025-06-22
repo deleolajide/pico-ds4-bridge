@@ -1,7 +1,5 @@
 #include "comm.h"
 
-shared_data_t g_shared_data = {
-    .timestamp = 0,
-    .ctrl = NULL,
-    .lock = NULL,
+ds4_shared_t g_ds4_shared = {
+    .data.timestamp = 0,
 };

@@ -6,13 +6,16 @@
 #include <hardware/sync.h>
 
 #include "dualshock4.h"
+#include "seqlock.h"
 
 typedef struct {
   uint32_t timestamp;
-  ds4_report_t* ctrl;
-  volatile spin_lock_t* lock;
-} shared_data_t;
+  uni_gamepad_t gamepad;
+  uint8_t battery;
+} ds4_frame_t;
 
-extern shared_data_t g_shared_data;
+SEQLOCK_DECL(ds4_shared_t, ds4_frame_t);
+
+extern ds4_shared_t g_ds4_shared __attribute__((aligned(32)));
 
 #endif  // COMM_H_

@@ -28,6 +28,8 @@ pico_sdk_init()
 
 ###############################################################################
 
+# add_compile_definitions()
+
 add_subdirectory(src)
 add_subdirectory(examples/monitor)
 
