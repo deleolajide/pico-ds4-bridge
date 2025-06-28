@@ -24,10 +24,6 @@ void bluetooth_thread_run() {
     return;
   }
 
-  // Diable Wi-Fi STA and AP modes
-  cyw43_arch_disable_sta_mode();
-  cyw43_arch_disable_ap_mode();
-
   bluetooth_init();
   bluetooth_run();
 }

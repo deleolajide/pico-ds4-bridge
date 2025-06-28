@@ -3,10 +3,13 @@
 #include <stddef.h>
 #include <string.h>
 
+#include <bt/uni_bt.h>
+#include <btstack.h>
 #include <controller/uni_gamepad.h>
 #include <pico/cyw43_arch.h>
 #include <pico/time.h>
 #include <uni.h>
+#include <uni_hid_device.h>
 
 #include "comm.h"
 #include "dualshock4.h"
@@ -26,16 +29,15 @@ static void pico_bluetooth_init(int argc, const char** argv) {
 }
 
 static void pico_bluetooth_on_init_complete(void) {
-  // Safe to call "unsafe" functions since they are called from BT thread
+  // Safe to call "unsafe" functions since they are called
+  printf("[INFO] Bluetooth initialization complete\n");
+
+  // Delete stored BT keys for fresh pairing (helpful for initial connection)
+  uni_bt_del_keys_unsafe();
 
   // Start scanning and autoconnect to supported controllers.
-  uni_bt_start_scanning_and_autoconnect_unsafe();
-
-  // Based on runtime condition, you can delete or list the stored BT keys.
-  if (1)
-    uni_bt_del_keys_unsafe();
-  else
-    uni_bt_list_keys_unsafe();
+  uni_bt_start_scanning_and_autoconnect_safe();
+  printf("[INFO] Started Bluetooth scanning for new devices\n");
 
   uni_property_dump_all();
 }
@@ -47,12 +49,18 @@ static uni_error_t pico_bluetooth_on_device_discovered(bd_addr_t addr, const cha
   // @param cod: Class of Device. See "uni_bt_defines.h" for possible values.
   // @param rssi: Received Signal Strength Indicator (RSSI) measured in dBms. The higher (255) the better.
 
-  printf("[INFO] Discovered device: %s (%02X:%02X:%02X:%02X:%02X:%02X) rssi=%d\n", name, addr[0], addr[1], addr[2],
-         addr[3], addr[4], addr[5], rssi);
+  const char* device_name = (name && strlen(name) > 0) ? name : "Unknown";
+  printf("[INFO:BT] Found device: %s (%02X:%02X:%02X:%02X:%02X:%02X) CoD=0x%04X RSSI=%ddBm\n", device_name, addr[0],
+         addr[1], addr[2], addr[3], addr[4], addr[5], cod, rssi);
+
+  // Check if it's a DualShock4 controller
+  if (name && (strstr(name, "Wireless Controller") || strstr(name, "DUALSHOCK") || strstr(name, "DualShock"))) {
+    printf("[INFO:BT] DualShock4 controller detected! Attempting connection...\n");
+  }
 
   // As an example, if you want to filter out keyboards, do:
   if (((cod & UNI_BT_COD_MINOR_MASK) & UNI_BT_COD_MINOR_KEYBOARD) == UNI_BT_COD_MINOR_KEYBOARD) {
-    logi("Ignoring keyboard\n");
+    printf("[INFO:BT] Ignoring keyboard device\n");
     return UNI_ERROR_IGNORE_DEVICE;
   }
 
@@ -60,15 +68,21 @@ static uni_error_t pico_bluetooth_on_device_discovered(bd_addr_t addr, const cha
 }
 
 static void pico_bluetooth_on_device_connected(uni_hid_device_t* d) {
-  // Disable scanning when a device is connected.
-  // This is optional, but it will save power.
+  printf("[INFO:BT] Device connected: %s (%02X:%02X:%02X:%02X:%02X:%02X)\n", d->name, d->conn.btaddr[0],
+         d->conn.btaddr[1], d->conn.btaddr[2], d->conn.btaddr[3], d->conn.btaddr[4], d->conn.btaddr[5]);
+
+  // Disable scanning when a device is connected to save power
   uni_bt_stop_scanning_safe();
+  printf("[INFO:BT] Stopped scanning (device connected)\n");
 }
 
 static void pico_bluetooth_on_device_disconnected(uni_hid_device_t* d) {
-  // Re-enable scanning when a device is disconnected.
-  // This is optional, but it will save power.
+  printf("[INFO:BT] Device disconnected: %s (%02X:%02X:%02X:%02X:%02X:%02X)\n", d->name, d->conn.btaddr[0],
+         d->conn.btaddr[1], d->conn.btaddr[2], d->conn.btaddr[3], d->conn.btaddr[4], d->conn.btaddr[5]);
+
+  // Re-enable scanning when a device is disconnected
   uni_bt_start_scanning_and_autoconnect_safe();
+  printf("[INFO:BT] Restarted scanning (device disconnected)\n");
 }
 
 static uni_error_t pico_bluetooth_on_device_ready(uni_hid_device_t* d) {
@@ -170,12 +184,19 @@ struct uni_platform* get_my_platform(void) {
 }
 
 void bluetooth_init(void) {
+  printf("[INIT] Starting Bluetooth initialization...\n");
+
+  // Keep Wi-Fi off but don't fully disable to avoid interfering with Bluetooth
+  cyw43_arch_disable_sta_mode();
+  cyw43_arch_disable_ap_mode();
+
   // Must be called before uni_init()
   uni_platform_set_custom(get_my_platform());
+  printf("[INIT] Custom platform registered\n");
 
   // Initialize BP32
   uni_init(0, NULL);
-  uni_bt_enable_new_connections_unsafe(true);
+  printf("[INIT] Bluepad32 initialized\n");
 }
 
 void bluetooth_run(void) {
