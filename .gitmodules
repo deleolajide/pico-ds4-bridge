@@ -1,0 +1,6 @@
+[submodule "lib/bluepad32"]
+	path = lib/bluepad32
+	url = https://github.com/ricardoquesada/bluepad32.git
+[submodule "lib/pico-sdk"]
+	path = lib/pico-sdk
+	url = https://github.com/raspberrypi/pico-sdk.git

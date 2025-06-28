@@ -35,5 +35,5 @@ add_subdirectory(examples/monitor)
 
 include_directories(config src)
 
-set(BLUEPAD32_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../bluepad32)
+set(BLUEPAD32_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/lib/bluepad32)
 add_subdirectory(${BLUEPAD32_ROOT}/src/components/bluepad32 libbluepad32)
