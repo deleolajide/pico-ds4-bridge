@@ -18,7 +18,7 @@ endif()
 # NOTE: this must happen before project()
 include(pico_sdk_import.cmake)
 
-project(bluepad_stand_alone C CXX ASM)
+project(pico_ds4_bridge C CXX ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
