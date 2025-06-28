@@ -2,6 +2,7 @@
 #include <pico/cyw43_arch.h>
 #include <tusb.h>
 
+#include "debug.h"
 #include "dualshock4.h"
 
 #define min(x, y) (x) < (y) ? (x) : (y)
@@ -402,7 +403,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
                                uint8_t* buffer,
                                uint16_t reqlen) {
   (void)instance;
-  printf("[INFO] Got hid report: id=%d, type=%d, size=%d\n", report_id, report_type, reqlen);
+  PICO_INFO("Got hid report: id=%d, type=%d, size=%d\n", report_id, report_type, reqlen);
 
   uint16_t responseLen = 0;
   switch (report_id) {
@@ -458,22 +459,22 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
       return responseLen;
     }
     case DS4_GET_SIGNATURE_NONCE: {
-      printf("tud_hid_get_report_cb: DS4_GET_SIGNATURE_NONCE\n");
+      PICO_DEBUG("tud_hid_get_report_cb: DS4_GET_SIGNATURE_NONCE\n");
       return 63;
     }
     case DS4_GET_SIGNING_STATE: {
-      printf("tud_hid_get_report_cb: DS4_GET_SIGNING_STATE\n");
+      PICO_DEBUG("tud_hid_get_report_cb: DS4_GET_SIGNING_STATE\n");
       return 15;
     }
     case DS4_RESET_AUTH: {
-      printf("tud_hid_get_report_cb: DS4_RESET_AUTH\n");
+      PICO_DEBUG("tud_hid_get_report_cb: DS4_RESET_AUTH\n");
       static uint8_t reset_auth[] = {0x0, 0x38, 0x38, 0, 0, 0, 0};
       responseLen = max(reqlen, sizeof(reset_auth));
       memcpy(buffer, reset_auth, responseLen);
       return responseLen;
     }
     default:
-      printf("[Error]: Unknown report ID %d\n", report_id);
+      PICO_ERROR("Unknown report ID %d\n", report_id);
       break;
   }
 
@@ -490,6 +491,7 @@ void tud_hid_set_report_cb(uint8_t instance,
                            uint16_t bufsize) {
   (void)instance;
 
+#if IS_PICO_DEBUG
   static int report_count = 0;
   static absolute_time_t last_updated = 0;
 
@@ -498,10 +500,11 @@ void tud_hid_set_report_cb(uint8_t instance,
 
   report_count++;
   if (elapsed_us > 1000000) {  // 1 sec
-    printf("[INFO] Report received: %d count\n", report_count);
+    PICO_DEBUG("[USB] USB Report received: %d count\n", report_count);
     last_updated = now;
     report_count = 0;
   }
+#endif
 
   // printf("tud_hid_set_report_cb: ID=%d, Type=%d, Size=%d\n", report_id, report_type, bufsize);
   ds4_feature_output_report_t feature;
@@ -543,9 +546,9 @@ void tud_hid_set_report_cb(uint8_t instance,
 }
 
 void tud_mount_cb(void) {
-  printf("[INFO] USB mounted\n");
+  PICO_INFO("USB mounted\n");
 }
 
 void tud_umount_cb(void) {
-  printf("[INFO] USB unmounted\n");
+  PICO_INFO("USB unmounted\n");
 }
