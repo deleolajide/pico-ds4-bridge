@@ -2,6 +2,7 @@
 #define DUALSHOCK4_H_
 
 #include <stdint.h>
+#include <stddef.h>
 
 #include <controller/uni_controller.h>
 
@@ -76,39 +77,7 @@ typedef struct __attribute__((packed)) {
   uint8_t padding[8];
 } ds4_feature_output_report_t;
 
-typedef struct {
-  uint8_t counter : 7;
-  uint8_t unpressed : 1;
-  uint8_t data[3];  // 12 bit X, followed by 12 bit Y
-} ds4_touchpad_t;
-
-typedef struct {
-  ds4_touchpad_t p1;
-  ds4_touchpad_t p2;
-} ds4_touchpad_data_t;
-
-typedef struct __attribute__((packed)) {
-  int16_t x;
-  int16_t y;
-  int16_t z;
-} ds4_sensor_t;
-
-typedef struct __attribute__((packed)) {
-  ds4_sensor_t gyro;   // 6 bytes
-  ds4_sensor_t accel;  // 6 bytes
-  uint8_t misc[5];     // 5 bytes
-  uint8_t batteryLevel : 4;
-  uint8_t usb : 1;
-  uint8_t microphone : 1;
-  uint8_t headphone : 1;
-  uint8_t extension : 1;  // 1 byte
-  uint8_t extData0 : 1;
-  uint8_t extData1 : 1;
-  uint8_t notConnected : 1;
-  uint8_t extData3 : 5;  // 1 byte
-  uint8_t misc2;         // 1 byte
-} ds4_sensor_data_t;     // 19 bytes
-
+// See for more details: https://www.psdevwiki.com/ps4/DS4-USB#Data_Format
 typedef struct __attribute__((packed)) {
   uint8_t report_id;      // 0
   uint8_t left_stick_x;   // 1
@@ -139,17 +108,44 @@ typedef struct __attribute__((packed)) {
   uint32_t right_trigger : 8;  // 9
   uint16_t axis_timing;        // timing counter: 10-11
 
-  uint8_t battery;  // 12
-  ds4_sensor_data_t sensor_data;
+  uint8_t temperature;  // 12
 
-  uint8_t unknown[7];
-  uint8_t num_trackpad_packets;
-  uint8_t touchpad_active : 2;
-  uint8_t padding : 6;
-  uint8_t tpad_increment;
-  ds4_touchpad_data_t touchpad_data;
-  uint8_t mystery_2[13];
+  uint16_t gyro_x;  // 13-14
+  uint16_t gyro_y;  // 15-16
+  uint16_t gyro_z;  // 17-18
+
+  uint16_t accel_x;  // 19-20
+  uint16_t accel_y;  // 21-22
+  uint16_t accel_z;  // 23-24
+
+  uint8_t unknown[5];  // 25-29
+
+  uint8_t battery_level : 4;  // 30
+  uint8_t usb : 1;  // 30
+  uint8_t microphone : 1;  // 30
+  uint8_t headphone : 1;  // 30
+  uint8_t extension : 1;  // 30
+  uint8_t unknown2[2];  // 31-32
+
+  uint8_t touch_event : 4;  // 33
+  uint8_t unknown3 : 4;  // 33
+
+  uint8_t tpad_counter;  // 34
+  uint8_t tpad_touch1[4];  // 35-38
+  uint8_t tpad_touch2[4];  // 39-42
+
+  uint8_t unknown4;  // 43
+  uint8_t tpad_prev_touch1[4];  // 44-47
+  uint8_t tpad_prev_touch2[4];  // 48-51
+
+  uint8_t unknown5[12];  // 52-63
 } ds4_report_t;
+
+_Static_assert(sizeof(ds4_report_t) == 64, "DS4 report size mismatch");
+_Static_assert(offsetof(ds4_report_t, temperature) == 12, "temperature byte must be at 12");
+_Static_assert(offsetof(ds4_report_t, tpad_counter) == 34,
+               "touch block must start at byte offset 34");
+_Static_assert(offsetof(ds4_report_t, unknown5) == 52, "unknown5 byte must be at 52");
 
 ds4_report_t default_ds4_report();
 

@@ -24,20 +24,35 @@ ds4_report_t default_ds4_report() {
       .button_select = 0,
       .button_start = 0,
       .button_home = 0,
+      .button_touchpad = 0,  // 터치패드 버튼 비활성화
       .report_counter = 0,
       .left_trigger = 0,
       .right_trigger = 0,
       .axis_timing = 0,
-      .battery = 0,
-      .touchpad_active = 0,
-      .padding = 0,
-      .tpad_increment = 0,
+      .temperature = 0,
+      .gyro_x = 0,
+      .gyro_y = 0,
+      .gyro_z = 0,
+      .accel_x = 0,
+      .accel_y = 0,
+      .accel_z = 0,
+      .unknown = {0, 0, 0, 0, 0},
+      .battery_level = 0x5,
+      .usb = 0,
+      .microphone = 0,
+      .headphone = 0,
+      .extension = 0,
+      .unknown2 = {0, 0},
+      .touch_event = 0,
+      .unknown3 = 0,
+      .tpad_counter = 0,
+      .tpad_touch1 = {0, 0, 0, 0},
+      .tpad_touch2 = {0, 0, 0, 0},
+      .unknown4 = 0,
+      .tpad_prev_touch1 = {0, 0, 0, 0},
+      .tpad_prev_touch2 = {0, 0, 0, 0},
+      .unknown5 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
   };
-
-  memset(&(report.sensor_data), 0, sizeof(ds4_sensor_data_t));
-  memset(&(report.touchpad_data), 0, sizeof(ds4_touchpad_data_t));
-  memset(&(report.mystery_2), 0, sizeof(report.mystery_2));
-  report.sensor_data.batteryLevel = 0x5;
 
   return report;
 }
@@ -94,6 +109,7 @@ void convert_uni_to_ds4(const uni_gamepad_t gamepad, const uint8_t battery, ds4_
   ds4->button_r2 = (buttons >> 7) & 0x01;
   ds4->button_l3 = (buttons >> 8) & 0x01;
   ds4->button_r3 = (buttons >> 9) & 0x01;
+  ds4->button_touchpad = 0;  // 터치패드 버튼 비활성화
 
   // misc_buttons
   // printf("buttons: %04X\n", misc_buttons);
@@ -109,24 +125,32 @@ void convert_uni_to_ds4(const uni_gamepad_t gamepad, const uint8_t battery, ds4_
   ds4->axis_timing = 0;
 
   // sensor data
-  ds4->battery = (battery / 25) & 0x0F;
-  ds4->sensor_data.batteryLevel = (battery / 25) & 0x0F;
-  ds4->sensor_data.usb = 0x0;
-  ds4->sensor_data.microphone = 0x0;
-  ds4->sensor_data.headphone = 0x0;
-  ds4->sensor_data.extension = 0x0;
-  ds4->sensor_data.misc2 = 0x00;
+  ds4->temperature = 0;
 
-  ds4->sensor_data.gyro.x = gamepad.gyro[0];
-  ds4->sensor_data.gyro.y = gamepad.gyro[1];
-  ds4->sensor_data.gyro.z = gamepad.gyro[2];
-  ds4->sensor_data.accel.x = gamepad.accel[0];
-  ds4->sensor_data.accel.y = gamepad.accel[1];
-  ds4->sensor_data.accel.z = gamepad.accel[2];
+  ds4->gyro_x = (uint16_t)(gamepad.gyro[0]);
+  ds4->gyro_y = (uint16_t)(gamepad.gyro[1]);
+  ds4->gyro_z = (uint16_t)(gamepad.gyro[2]);
+  ds4->accel_x = (uint16_t)(gamepad.accel[0]);
+  ds4->accel_y = (uint16_t)(gamepad.accel[1]);
+  ds4->accel_z = (uint16_t)(gamepad.accel[2]);
 
-  ds4->touchpad_active = 0x0;
-  ds4->padding = 0;
-  ds4->tpad_increment = 0;
-  // memset(&ds4->touchpad_data, 0, sizeof(ds4->touchpad_data));
-  // memset(ds4->mystery_2, 0, sizeof(ds4->mystery_2));
+  memset(ds4->unknown, 0, sizeof(ds4->unknown));
+
+
+  ds4->battery_level = (battery / 25) & 0x0F;
+  ds4->usb = 0x0;
+  ds4->microphone = 0x0;
+  ds4->headphone = 0x0;
+  ds4->extension = 0x0;
+  memset(ds4->unknown2, 0, sizeof(ds4->unknown2));
+
+  ds4->touch_event = 0;
+  ds4->unknown3 = 0;
+  ds4->tpad_counter = 0;
+  memset(ds4->tpad_touch1, 0, sizeof(ds4->tpad_touch1));
+  memset(ds4->tpad_touch2, 0, sizeof(ds4->tpad_touch2));
+  ds4->unknown4 = 0;
+  memset(ds4->tpad_prev_touch1, 0, sizeof(ds4->tpad_prev_touch1));
+  memset(ds4->tpad_prev_touch2, 0, sizeof(ds4->tpad_prev_touch2));
+  memset(ds4->unknown5, 0, sizeof(ds4->unknown5));
 }

@@ -40,15 +40,15 @@ try:
         now = time.monotonic()
         elapsed = now - start_time  # seconds as double
 
-        # Gyro (bytes 20–25)
-        gx = struct.unpack_from("<h", data, 12)[0]
-        gy = struct.unpack_from("<h", data, 14)[0]
-        gz = struct.unpack_from("<h", data, 16)[0]
+        # Gyro (bytes 13-20)
+        gx = struct.unpack_from("<h", data, 13)[0]
+        gy = struct.unpack_from("<h", data, 15)[0]
+        gz = struct.unpack_from("<h", data, 17)[0]
 
-        # Accelerometer (bytes 28–33)
-        ax = struct.unpack_from("<h", data, 22)[0]
-        ay = struct.unpack_from("<h", data, 24)[0]
-        az = struct.unpack_from("<h", data, 26)[0]
+        # Accelerometer (bytes 19-24)
+        ax = struct.unpack_from("<h", data, 19)[0]
+        ay = struct.unpack_from("<h", data, 21)[0]
+        az = struct.unpack_from("<h", data, 23)[0]
 
         raw = data[30]
         cable = (raw >> 4) & 0x01
@@ -66,7 +66,7 @@ try:
 
         print(f"Battery: {battery_percent}% {'(charging)' if charging else ''}")
 
-        print(f"{elapsed:.6f} {gx} {gy} {gz} {ax} {ay} {az}")
+        print(f"[{elapsed:>10.6f} sec] Gx: {gx:>8} Gy: {gy:>8} Gz: {gz:>8} Ax: {ax:>8} Ay: {ay:>8} Az: {az:>8}")
         records.append((elapsed, gx, gy, gz, ax, ay, az))
         time.sleep(0.001)
 
