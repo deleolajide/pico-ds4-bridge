@@ -18,7 +18,7 @@
 #endif
 
 #define BT_UPDATE_TIMEOUT_US 40000  // 40ms timeout for bluetooth packet updates
-#define BT_UPDATE_PER_SEC 250  // 250 times per second
+#define BT_UPDATE_PER_SEC 250       // 250 times per second
 
 void bluetooth_thread_run() {
   // initialize CYW43 driver architecture
@@ -34,18 +34,23 @@ void bluetooth_thread_run() {
 void usb_thread_run() {
   const ds4_report_t zero_report = default_ds4_report();
 
-  tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE, .speed = TUSB_SPEED_AUTO};
+  tusb_rhport_init_t dev_init = {.role = TUSB_ROLE_DEVICE,
+                                 .speed = TUSB_SPEED_AUTO};
   tusb_init(BOARD_TUD_RHPORT, &dev_init);
 
-  // Initialize USB HID Device stack
-  while (!is_ds4_initialized) {
+  while (!is_usb_mounted) {
     tud_task();
-    sleep_ms(2);
+    sleep_ms(10);
   }
+
+  // Wait for USB HID Device stack to be initialized
   do {
     tud_task();
-    sleep_ms(2);
-  } while (!tud_hid_report(0, &zero_report, sizeof(ds4_report_t)));
+    sleep_ms(10);
+  } while (!tud_hid_report(0x01, &zero_report, sizeof(ds4_report_t)));
+
+  // Wait for 1 second to ensure the device is ready
+  sleep_ms(1000);
 
   // Communication variables
   uint32_t last_updated = 0;
@@ -80,9 +85,8 @@ void usb_thread_run() {
     ds4_frame_t data;
     ds4_report_t report;
 
-    if (tud_hid_ready()) {
-      is_updated = false;
-
+    is_updated = false;
+    if (tud_hid_ready() && !report_in_flight) {
       SEQLOCK_TRY_READ(&data, g_ds4_shared);
       int32_t time_diff = data.timestamp - last_updated;
       if (time_diff > 0) {
@@ -95,17 +99,14 @@ void usb_thread_run() {
 
       // report when dualshock4 is updated or send default report if update is
       // not received for 5ms
-      if (is_updated) {
-        // report when dualshock4 is updated
-        tud_hid_report(0, &report, sizeof(ds4_report_t));
+      if (is_updated && tud_hid_report(0x01, &report, sizeof(ds4_report_t))) {
+        report_in_flight = true;
         last_reported = get_absolute_time();
-
         // blink the LED every 250 reports
         if (counter++ % (BT_UPDATE_PER_SEC / 2) == 0) {
           cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, blink_on ^= 1);
           sleep_us(100);
         }
-
 #if IS_PICO_DEBUG
         ds4_update_count++;
 #endif
@@ -113,13 +114,16 @@ void usb_thread_run() {
         absolute_time_t now = get_absolute_time();
         int64_t elapsed_us = absolute_time_diff_us(last_reported, now);
         if (elapsed_us > BT_UPDATE_TIMEOUT_US) {
-          tud_hid_report(0, &zero_report, sizeof(ds4_report_t));
-          last_reported = get_absolute_time();
-          is_connected = false;
+          if (tud_hid_report(0x01, &zero_report, sizeof(ds4_report_t))) {
+            report_in_flight = true;
+            last_reported = get_absolute_time();
+            is_connected = false;
+            sleep_ms(100);
 #if IS_PICO_DEBUG
-          ds4_missed_count++;
-          PICO_DEBUG("[USB] USB report missed for %lld us.\n", elapsed_us);
+            ds4_missed_count++;
+            PICO_DEBUG("[USB] USB report missed for %lld us.\n", elapsed_us);
 #endif
+          }
         }
       }
 
@@ -127,13 +131,19 @@ void usb_thread_run() {
       absolute_time_t now = get_absolute_time();
       int64_t stat_elapsed_us = absolute_time_diff_us(last_stat_time, now);
       if (stat_elapsed_us >= 1000000) {
-        double elapsed_sec = absolute_time_diff_us(stat_start_time, now) / 1000000.0;
+        double elapsed_sec =
+            absolute_time_diff_us(stat_start_time, now) / 1000000.0;
+        last_stat_time = now;
+        PICO_DEBUG("[USB] USB Elapsed: %f, Updates: %u, Misses: %u\n",
+                   elapsed_sec, ds4_update_count, ds4_missed_count);
         ds4_update_count = 0;
         ds4_missed_count = 0;
-        last_stat_time = now;
-        PICO_DEBUG("[USB] USB Elapsed: %f, Updates: %u, Misses: %u\n", elapsed_sec, ds4_update_count, ds4_missed_count);
       }
 #endif
+    }
+
+    if (tud_suspended()) {
+      tud_remote_wakeup();
     }
     sleep_ms(1);
   }

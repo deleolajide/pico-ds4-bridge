@@ -29,6 +29,8 @@
 #define DS4_RESET_AUTH 0xF3             // Unknown (PS4 Report 0xF3)
 
 bool is_ds4_initialized = false;
+bool is_usb_mounted = false;
+bool report_in_flight = false;
 
 // Device Descriptor
 tusb_desc_device_t const desc_device = {
@@ -305,21 +307,21 @@ static const uint8_t ds4_configuration_descriptor[] = {
     2,                           // bDescriptorType;
     LSB(DS4_CONFIG1_DESC_SIZE),  // wTotalLength
     MSB(DS4_CONFIG1_DESC_SIZE),
-    1,                  // bNumInterfaces
-    1,                  // bConfigurationValue
-    0,                  // iConfiguration
-    0x80,               // bmAttributes
-    50,                 // bMaxPower
-                        // interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
-    9,                  // bLength
-    4,                  // bDescriptorType
-    GAMEPAD_INTERFACE,  // bInterfaceNumber
-    0,                  // bAlternateSetting
-    2,                  // bNumEndpoints
-    0x03,               // bInterfaceClass (0x03 = HID)
-    0x00,               // bInterfaceSubClass (0x00 = No Boot)
-    0x00,               // bInterfaceProtocol (0x00 = No Protocol)
-    0,                  // iInterface
+    1,     // bNumInterfaces
+    1,     // bConfigurationValue
+    0,     // iConfiguration
+    0x80,  // bmAttributes
+    50,    // bMaxPower
+           // interface descriptor, USB spec 9.6.5, page 267-269, Table 9-12
+    9,     // bLength
+    4,     // bDescriptorType
+    0,     // bInterfaceNumber
+    0,     // bAlternateSetting
+    2,     // bNumEndpoints
+    0x03,  // bInterfaceClass (0x03 = HID)
+    0x00,  // bInterfaceSubClass (0x00 = No Boot)
+    0x00,  // bInterfaceProtocol (0x00 = No Protocol)
+    0,     // iInterface
     // HID interface descriptor, HID 1.11 spec, section 6.2.1
     9,                                 // bLength
     0x21,                              // bDescriptorType
@@ -335,7 +337,7 @@ static const uint8_t ds4_configuration_descriptor[] = {
     GAMEPAD_ENDPOINT | 0x80,  // bEndpointAddress
     0x03,                     // bmAttributes (0x03=intr)
     GAMEPAD_SIZE, 0,          // wMaxPacketSize
-    1,                        // bInterval (1 ms)
+    4,                        // bInterval (4 ms)
     0x07, 0x05, 0x03, 0x03, 0x40, 0x00, 0x01};
 
 // --- String Descriptors ---
@@ -403,24 +405,34 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
                                uint8_t* buffer,
                                uint16_t reqlen) {
   (void)instance;
-  PICO_INFO("Got hid report: id=%d, type=%d, size=%d\n", report_id, report_type, reqlen);
+  if (report_type != HID_REPORT_TYPE_FEATURE) {
+    PICO_DEBUG("tud_hid_get_report_cb: not feature report\n");
+    return 0;
+  }
+
+  PICO_INFO("Got hid report: id=%d, type=%d, size=%d\n", report_id, report_type,
+            reqlen);
 
   uint16_t responseLen = 0;
   switch (report_id) {
     case DS4_GET_CALIBRATION: {
-      static uint8_t calibration[] = {0xfe, 0xff, 0x0e, 0x00, 0x04, 0x00, 0xd4, 0x22, 0x2a, 0xdd, 0xbb, 0x22,
-                                      0x5e, 0xdd, 0x81, 0x22, 0x84, 0xdd, 0x1c, 0x02, 0x1c, 0x02, 0x85, 0x1f,
-                                      0xb0, 0xe0, 0xc6, 0x20, 0xb5, 0xe0, 0xb1, 0x20, 0x83, 0xdf, 0x0c, 0x00};
-      responseLen = max(reqlen, sizeof(calibration));
+      static uint8_t calibration[] = {
+          0xfe, 0xff, 0x0e, 0x00, 0x04, 0x00, 0xd4, 0x22, 0x2a,
+          0xdd, 0xbb, 0x22, 0x5e, 0xdd, 0x81, 0x22, 0x84, 0xdd,
+          0x1c, 0x02, 0x1c, 0x02, 0x85, 0x1f, 0xb0, 0xe0, 0xc6,
+          0x20, 0xb5, 0xe0, 0xb1, 0x20, 0x83, 0xdf, 0x0c, 0x00};
+      responseLen = min(reqlen, sizeof(calibration));
       memcpy(buffer, calibration, responseLen);
       return responseLen;
     }
     case DS4_DEFINITION: {
-      static uint8_t controller_desc[] = {0x21, 0x27, 0x04, 0xcf, 0x00, 0x2c, 0x56, 0x08, 0x00, 0x3d, 0x00, 0xe8,
-                                          0x03, 0x04, 0x00, 0xff, 0x7f, 0x0d, 0x0d, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-      responseLen = max(reqlen, sizeof(controller_desc));
+      static uint8_t controller_desc[] = {
+          0x21, 0x27, 0x04, 0xcf, 0x00, 0x2c, 0x56, 0x08, 0x00, 0x3d,
+          0x00, 0xe8, 0x03, 0x04, 0x00, 0xff, 0x7f, 0x0d, 0x0d, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+      responseLen = min(reqlen, sizeof(controller_desc));
       memcpy(buffer, controller_desc, responseLen);
       buffer[4] = 0x00;  // controller type: 0x00 = DS4
       return responseLen;
@@ -431,10 +443,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
           0x08, 0x25, 0x00,                    // BT device class
           0x00, 0x00, 0x00, 0x00, 0x00, 0x00   // host MAC address
       };
-      if (reqlen < sizeof(mac_address)) {
-        return -1;
-      }
-      responseLen = max(reqlen, sizeof(mac_address));
+      responseLen = min(reqlen, sizeof(mac_address));
       memcpy(buffer, mac_address, responseLen);
       return responseLen;
     }
@@ -442,19 +451,18 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
       static uint8_t mac_address_short[] = {
           0x01, 0x02, 0x03, 0x04, 0x05, 0x06,  // device MAC address
       };
-      if (reqlen < sizeof(mac_address_short)) {
-        return -1;
-      }
-      responseLen = max(reqlen, sizeof(mac_address_short));
+      responseLen = min(reqlen, sizeof(mac_address_short));
       memcpy(buffer, mac_address_short, responseLen);
       return responseLen;
     }
     case DS4_GET_VERSION_DATE: {
-      static uint8_t firmware_version_date[] = {0x4a, 0x75, 0x6e, 0x20, 0x20, 0x39, 0x20, 0x32, 0x30, 0x31, 0x37, 0x00,
-                                                0x00, 0x00, 0x00, 0x00, 0x31, 0x32, 0x3a, 0x33, 0x36, 0x3a, 0x34, 0x31,
-                                                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x08, 0xb4,
-                                                0x01, 0x00, 0x00, 0x00, 0x07, 0xa0, 0x10, 0x20, 0x00, 0xa0, 0x02, 0x00};
-      responseLen = max(reqlen, sizeof(firmware_version_date));
+      static uint8_t firmware_version_date[] = {
+          0x4a, 0x75, 0x6e, 0x20, 0x20, 0x39, 0x20, 0x32, 0x30, 0x31,
+          0x37, 0x00, 0x00, 0x00, 0x00, 0x00, 0x31, 0x32, 0x3a, 0x33,
+          0x36, 0x3a, 0x34, 0x31, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+          0x00, 0x00, 0x00, 0x01, 0x08, 0xb4, 0x01, 0x00, 0x00, 0x00,
+          0x07, 0xa0, 0x10, 0x20, 0x00, 0xa0, 0x02, 0x00};
+      responseLen = min(reqlen, sizeof(firmware_version_date));
       memcpy(buffer, firmware_version_date, responseLen);
       return responseLen;
     }
@@ -469,7 +477,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
     case DS4_RESET_AUTH: {
       PICO_DEBUG("tud_hid_get_report_cb: DS4_RESET_AUTH\n");
       static uint8_t reset_auth[] = {0x0, 0x38, 0x38, 0, 0, 0, 0};
-      responseLen = max(reqlen, sizeof(reset_auth));
+      responseLen = min(reqlen, sizeof(reset_auth));
       memcpy(buffer, reset_auth, responseLen);
       return responseLen;
     }
@@ -478,7 +486,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
       break;
   }
 
-  return -1;
+  return 0;
 }
 
 //---------------------------------------------------------------------
@@ -506,7 +514,8 @@ void tud_hid_set_report_cb(uint8_t instance,
   }
 #endif
 
-  // printf("tud_hid_set_report_cb: ID=%d, Type=%d, Size=%d\n", report_id, report_type, bufsize);
+  // printf("tud_hid_set_report_cb: ID=%d, Type=%d, Size=%d\n", report_id,
+  // report_type, bufsize);
   ds4_feature_output_report_t feature;
   if (report_type == HID_REPORT_TYPE_OUTPUT) {
     if (report_id == 0 && !is_ds4_initialized) {
@@ -521,11 +530,13 @@ void tud_hid_set_report_cb(uint8_t instance,
     // printf("Enable Update Volume Left: %d\n", feature.enableUpdateVolLeft);
     // printf("Enable Update Volume Right: %d\n", feature.enableUpdateVolRight);
     // printf("Enable Update Volume Mic: %d\n", feature.enableUpdateVolMic);
-    // printf("Enable Update Volume Speaker: %d\n", feature.enableUpdateVolSpeaker);
-    // printf("Rumble: %d, %d\n", feature.rumbleLeft, feature.rumbleRight);
-    // printf("LED: %d, %d, %d\n", feature.ledRed, feature.ledGreen, feature.ledBlue);
-    // printf("LED Blink: %d, %d\n", feature.ledBlinkOn, feature.ledBlinkOff);
-    // printf("Volume: %d, %d, %d, %d\n", feature.volumeLeft, feature.volumeRight, feature.volumeMic,
+    // printf("Enable Update Volume Speaker: %d\n",
+    // feature.enableUpdateVolSpeaker); printf("Rumble: %d, %d\n",
+    // feature.rumbleLeft, feature.rumbleRight); printf("LED: %d, %d, %d\n",
+    // feature.ledRed, feature.ledGreen, feature.ledBlue); printf("LED Blink:
+    // %d, %d\n", feature.ledBlinkOn, feature.ledBlinkOff); printf("Volume: %d,
+    // %d, %d, %d\n", feature.volumeLeft, feature.volumeRight,
+    // feature.volumeMic,
     //        feature.volumeSpeaker);
     // printf("Ext Data: ");
     // for (int i = 0; i < sizeof(feature.extData); i++) {
@@ -539,7 +550,8 @@ void tud_hid_set_report_cb(uint8_t instance,
     //   printf("%02X ", feature.padding[i]);
     // }
     // printf("\n");
-    // printf("[INFO] Received feature report with ID %d, size %d\n", report_id, bufsize);
+    // printf("[INFO] Received feature report with ID %d, size %d\n", report_id,
+    // bufsize);
 
     is_ds4_initialized = true;
   }
@@ -547,8 +559,27 @@ void tud_hid_set_report_cb(uint8_t instance,
 
 void tud_mount_cb(void) {
   PICO_INFO("USB mounted\n");
+  is_usb_mounted = true;
 }
 
 void tud_umount_cb(void) {
   PICO_INFO("USB unmounted\n");
+}
+
+void tud_hid_report_complete_cb(uint8_t instance,
+                                uint8_t const* report,
+                                uint16_t len) {
+  report_in_flight = false;
+}
+
+void tud_hid_report_failed_cb(uint8_t instance,
+                              hid_report_type_t report_type,
+                              uint8_t const* report,
+                              uint16_t xferred_bytes) {}
+
+void tud_suspend_cb(bool remote_wakeup_en) {}
+
+void tud_resume_cb(void) {}
+
+void tud_hid_report_received_cb(uint8_t itf, uint8_t const* rpt, uint16_t len) {
 }
