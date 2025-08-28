@@ -34,5 +34,7 @@ enum {
 };
 
 extern bool is_ds4_initialized;
+extern bool is_usb_mounted;
+extern bool report_in_flight;
 
 #endif /* USB_DESCRIPTORS_H_ */
