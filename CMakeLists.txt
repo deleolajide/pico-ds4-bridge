@@ -26,7 +26,10 @@ set(CMAKE_CXX_STANDARD 17)
 # Initialize the Raspberry Pi Pico SDK
 pico_sdk_init()
 
-###############################################################################
+add_executable(${PROJECT_NAME} main.c usb_descriptors.c)
 
 # add_compile_definitions()
 add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib2/bluepad32/src/components/bluepad32 libbluepad32)
+
+# Create map/bin/hex/uf2 files
+pico_add_extra_outputs(${PROJECT_NAME})
