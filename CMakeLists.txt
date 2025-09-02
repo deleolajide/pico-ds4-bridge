@@ -29,4 +29,4 @@ pico_sdk_init()
 ###############################################################################
 
 # add_compile_definitions()
-add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/bluepad32/src/components/bluepad32 libbluepad32)
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib2/bluepad32/src/components/bluepad32 libbluepad32)

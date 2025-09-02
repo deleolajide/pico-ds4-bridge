@@ -57,7 +57,7 @@ set(PICO_SDK_FETCH_FROM_GIT_TAG "${PICO_SDK_FETCH_FROM_GIT_TAG}" CACHE FILEPATH 
 
 if (NOT PICO_SDK_PATH)
     # Use the local submodule if PICO_SDK_PATH is not set
-    set(PICO_SDK_PATH "${CMAKE_CURRENT_LIST_DIR}/lib/pico-sdk")
+    set(PICO_SDK_PATH "${CMAKE_CURRENT_LIST_DIR}/lib2/pico-sdk")
     message("Using local pico-sdk submodule at '${PICO_SDK_PATH}'")
 endif ()
 
